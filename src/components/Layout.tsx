@@ -39,7 +39,14 @@ function ColorModeToggle() {
 }
 
 function Nav({ onNavigate }: { onNavigate?: () => void }) {
-  const order: Section[] = ['versions', 'foundations', 'stack', 'meta']
+  const order: Section[] = [
+    'fundamentals',
+    'foundations',
+    'architecture',
+    'versions',
+    'stack',
+    'meta',
+  ]
   return (
     <List dense sx={{ py: 0 }}>
       {order.map((section) => (

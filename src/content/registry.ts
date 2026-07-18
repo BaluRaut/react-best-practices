@@ -4,7 +4,7 @@
 // Claude skills by `scripts/build-skills.mjs`, which is the whole point of the layout:
 // the site and the skills cannot drift apart, because there is only one copy of the prose.
 
-export type Section = 'foundations' | 'versions' | 'stack' | 'meta'
+export type Section = 'fundamentals' | 'foundations' | 'architecture' | 'versions' | 'stack' | 'meta'
 
 export interface Doc {
   slug: string
@@ -19,10 +19,20 @@ export interface Doc {
 }
 
 export const SECTIONS: Record<Section, { title: string; blurb: string }> = {
+  fundamentals: {
+    title: 'Fundamentals First',
+    blurb:
+      'The model the rest of the site assumes: render vs commit, reconciliation, closures, dependency arrays, and purity. Read this if any later page feels like a recipe without a reason.',
+  },
   foundations: {
     title: 'Foundations',
     blurb:
       'Rules that hold regardless of your React version, meta-framework, or component library.',
+  },
+  architecture: {
+    title: 'Architecture & Production',
+    blurb:
+      'The decisions a codebase lives with: folder structure, where state goes, forms, custom hooks, and the data layer. Where most of the day-to-day judgement actually is.',
   },
   versions: {
     title: 'Versions & Migration',
@@ -40,6 +50,17 @@ export const SECTIONS: Record<Section, { title: string; blurb: string }> = {
 }
 
 export const DOCS: Doc[] = [
+  // ── Fundamentals ─────────────────────────────────────────────────────────────
+  {
+    slug: 'fundamentals',
+    title: 'React Fundamentals',
+    blurb:
+      'The mental model every other page relies on: render vs commit, reconciliation and keys, closures and the stale-closure trap, dependency arrays, and why render must be pure. Concepts, not recipes.',
+    section: 'fundamentals',
+    tags: ['render vs commit', 'reconciliation', 'closures', 'dependencies', 'purity'],
+    skill: 'react-fundamentals',
+  },
+
   // ── Foundations ──────────────────────────────────────────────────────────────
   {
     slug: 'react-practices',
@@ -148,6 +169,53 @@ export const DOCS: Doc[] = [
     section: 'stack',
     tags: ['testing', 'accessibility', 'performance', 'eslint', 'vitest'],
     skill: 'react-quality',
+  },
+
+  // ── Architecture & Production ────────────────────────────────────────────────
+  {
+    slug: 'architecture',
+    title: 'Project Structure',
+    blurb:
+      'Feature-based vs layer-based folders, colocation, and the barrel-file cost — measured, not asserted. How to lay out a React codebase so it survives growth.',
+    section: 'architecture',
+    tags: ['structure', 'feature-folders', 'colocation', 'barrel-files'],
+    skill: 'react-architecture',
+  },
+  {
+    slug: 'state-management',
+    title: 'Where State Should Live',
+    blurb:
+      'The decision every app gets wrong at least once: local state, lifted state, Context, or an external store (Zustand/Redux/Jotai). A decision guide with the measured cost of getting it wrong.',
+    section: 'architecture',
+    tags: ['state', 'context', 'zustand', 'redux', 'jotai'],
+    skill: 'react-state-management',
+  },
+  {
+    slug: 'forms',
+    title: 'Forms',
+    blurb:
+      'Controlled vs uncontrolled, React 19 Actions and useActionState, validation, and when a form library (react-hook-form) earns its weight versus plain state.',
+    section: 'architecture',
+    tags: ['forms', 'validation', 'useActionState', 'react-hook-form'],
+    skill: 'react-forms',
+  },
+  {
+    slug: 'custom-hooks',
+    title: 'Custom Hook Design',
+    blurb:
+      'The unit of reuse in React, done well: naming, return shapes, composition, when to extract, and the advanced ref/latest patterns — clearly labelled as advanced, not defaults.',
+    section: 'architecture',
+    tags: ['custom-hooks', 'reuse', 'composition', 'useLatest'],
+    skill: 'react-custom-hooks',
+  },
+  {
+    slug: 'data-layer',
+    title: 'The Data Layer',
+    blurb:
+      'Server data is a cache, not state. Structuring the API layer, TanStack Query, request cancellation, sequential vs parallel fetching (measured), and where fetching belongs.',
+    section: 'architecture',
+    tags: ['data-fetching', 'tanstack-query', 'api-layer', 'caching'],
+    skill: 'react-data-layer',
   },
 
   // ── Meta ─────────────────────────────────────────────────────────────────────

@@ -52,6 +52,11 @@ Current dist-tags: `latest=9.2.0`, `latest-v7=7.3.11`, `latest-v6=6.5.0`, `lates
 **The default styling engine of Material UI is Emotion, and it is the only realistic choice in v9.**
 Pigment CSS is officially **on hold, still alpha, and effectively dormant.** Do not build on it.
 
+> 🟢 **Best practice** — build on Emotion. This is a maintainability rule, not an optimization: it's
+> the engine MUI installs, documents, and tests, and the only one that supports the runtime-dynamic
+> `sx`/theme API you'll actually use. Betting on the "zero-runtime" story of a `0.0.x` package that
+> has shipped once in 16 months is how you strand a codebase on an abandoned dependency.
+
 ### Why Pigment CSS looks alive but isn't
 
 `npm view @mui/material peerDependencies` shows `@mui/material-pigment-css: ^9.2.0`, which *looks* like a
@@ -129,6 +134,23 @@ layout (`.mjs` siblings next to `.js`, **no separate `/esm` directory**), and `s
   ```ts
   import MenuIcon from '@mui/icons-material/Menu'; // not: import { Menu } from '@mui/icons-material'
   ```
+
+> 🟢 **Best practice** — top-level named imports from `@mui/material`, single-path imports from
+> `@mui/icons-material`. Because `@mui/material` sets `sideEffects: false`, its named imports
+> tree-shake cleanly, so the correctness/simplicity default and the bundle-size default agree — no
+> `babel-plugin-import` needed. A barrel only bites when its modules have side effects and
+> `sideEffects: false` is absent: on a small reproduction, pulling one symbol out of a 20-module
+> *side-effectful* barrel dragged in all 22 modules (1571 bytes) versus a direct import's 2 modules
+> (143 bytes); with pure modules both were identical (~99 bytes). Measured on a small reproduction —
+> your numbers will differ. MUI's own barrel is the pure, tree-shakeable kind; `@mui/icons-material`
+> is the risky kind at 11k exports, which is why the single-icon path matters there specifically.
+
+> 🟡 **Optimization** — 1-level deep imports (`@mui/material/Button`) as a dev-server speedup.
+> **Pros:** fewer modules for Vite to crawl and prebundle on cold start, faster first load of the dev
+> server. **Cons:** noisier import lines, and *zero* production bundle benefit — the named-import
+> path already tree-shakes. **When NOT to use it:** don't convert a whole codebase to deep imports
+> for prod size — that's cargo-culting a v6-era rule the v7 migration guide explicitly retired.
+> Reach for it only if dev cold start is a measured pain point.
 
 Myth-check on v9: it did **not** drop `prop-types` (`^15.8.1` is still a runtime dep) and did **not** swap
 Popper for floating-ui (`@popperjs/core ^2.11.8` is still there). Any claim otherwise is false at 9.2.0.
@@ -259,6 +281,12 @@ npx @mui/codemod@latest deprecations/text-field-props <path>
 The v9 guide indexes codemods under `deprecations/*` rather than a single `v9.0.0/preset-safe` umbrella —
 whether a one-shot preset exists is unconfirmed, so don't script one blindly. **Low-risk ordering:** run
 the `deprecations/*` codemods **while still on v7** (they're forward-compatible), then bump the major.
+
+> 🟢 **Best practice** — migrate the deprecations on the *old* major, one codemod at a time, each in
+> its own commit, before bumping. It keeps every step green and reviewable and shrinks the actual
+> major-bump diff to the genuinely-breaking changes. Because `tsc` passing does **not** prove the
+> migration is done (it can't see the four silent breaks tabled above), a small per-codemod diff is
+> also far easier to hand-verify than one giant post-bump changeset.
 
 ---
 
@@ -408,10 +436,21 @@ function ThemeToggle() {
 }
 ```
 
+> 🟢 **Best practice** — guard the first render on `mode` being `undefined`. This is a correctness
+> rule, not a nicety: rendering the toggle before `mode` resolves ships a hydration mismatch or a
+> wrong-icon flash. Returning `null`/a skeleton until `mode` is defined is the whole fix.
+
 ### `applyStyles` — the pattern that survives CSS variables
 
 `theme.applyStyles(mode, styles)` returns a `CSSObject`. Use it instead of `palette.mode` ternaries so
 your styles keep updating after the v7 "theme doesn't re-render" change:
+
+> 🟢 **Best practice** — prefer `theme.applyStyles('dark', …)` (or `theme.vars.*`) over a
+> `theme.palette.mode === 'dark' ? … : …` ternary. This is a correctness rule under CSS variables:
+> the `theme` object is now stable and only re-runs your style callback once, so a `palette.mode`
+> ternary freezes at the scheme captured on first render — a [stale read](fundamentals#closures)
+> with no error. `applyStyles` emits both scheme's rules as static CSS that the DOM attribute
+> switches between, so it survives the toggle.
 
 ```tsx
 // GOOD — array form in styled(); survives CSS vars
@@ -433,13 +472,28 @@ const Frozen = styled('div')(({ theme }) => ({
 
 ## sx vs styled vs Box — the real cost
 
-- **`sx` is serialized and hashed by Emotion on every render** — a runtime CSS-in-JS call per element.
-  Fine for page-level or one-off elements; measurably bad in a hot list/table cell rendered thousands of
-  times.
+- **`sx` is serialized and hashed by Emotion on every render** — a runtime CSS-in-JS call per element,
+  paid at [commit as well as render](fundamentals#render-vs-commit). Fine for page-level or one-off
+  elements; measurably bad in a hot list/table cell rendered thousands of times.
 - **`styled()` hoists the style computation to module scope** — the class is generated once. Prefer it for
   anything rendered in a loop or a virtualized list.
 - **The `sx` object-literal trap:** an inline `sx={{…}}` is a **new object identity every render**, so it
   defeats `React.memo` on the child. Hoist static ones to module scope.
+
+> 🔴 **Advanced / gotcha** — a new inline `sx={{…}}` object each render silently breaks a downstream
+> `React.memo`, because `memo`'s shallow prop comparison sees a fresh object identity and re-renders
+> anyway (same reason a fresh object breaks any [reconciliation](fundamentals#reconciliation) bailout).
+> The failure is invisible: nothing errors, the child just keeps re-rendering *and* re-serializing.
+> For scale, a memoized child whose props genuinely don't change dropped from 11 renders to 1 across
+> 10 parent updates — measured on a small reproduction (React 19, jsdom); your numbers will differ.
+> A single inline `sx` upstream can hand back all of that.
+
+> 🟡 **Optimization** — reach for `styled()` over `sx` in hot paths. **Pros:** the class is computed
+> once at module scope instead of re-serialized per render; stable identity, so it doesn't defeat
+> `memo`. **Cons:** more boilerplate, the styles live away from the JSX, and you lose the ergonomic
+> theme-shorthand of `sx`. **When NOT to use it:** page-level and one-off elements — the per-render
+> serialization is negligible at low render counts, and `sx` reads better. Only migrate a component
+> to `styled()` when it's in a loop, a virtualized list, or a table cell rendered thousands of times.
 
 ```tsx
 // BAD — new object each render: breaks memo, re-serializes every time
@@ -470,6 +524,12 @@ Order of preference when customizing a component — cheapest first:
 2. **`components.MuiX.styleOverrides`** — keyed by slot; supports the callback form
    `({ theme, ownerState }) => …`.
 3. **`components.MuiX.variants`** — for *new* named variants, matched on props.
+
+> 🟢 **Best practice** — centralize component customization in the theme rather than repeating `sx`
+> on every instance. It's a maintainability rule: one source of truth, consistent across the app, and
+> `defaultProps` in particular carries no style cost at all. Reach down the list only as the change
+> demands — `defaultProps` for prop defaults, `styleOverrides` for slot styling, `variants` only when
+> you're genuinely adding a new named variant.
 
 ```tsx
 const theme = createTheme({

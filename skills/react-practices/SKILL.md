@@ -30,13 +30,17 @@ codebases exist to compute state from other state, or to react to a prop change,
 state update to the next — none of which involve an external system, all of which are bugs waiting to
 fire.
 
-**Why it exists:** an Effect runs *after* render and commit. Anything you do there that could have
-been done during render costs an extra render pass, and any state you set from an Effect can tear —
-the user sees the intermediate value for one frame. Worse, Effect-derived state drifts out of sync
-with its inputs the moment you add a new code path that forgets to update it.
+**Why it exists:** an Effect runs *after* [render and commit](fundamentals#render-vs-commit). Anything
+you do there that could have been done during render costs an extra render pass, and any state you set
+from an Effect can tear — the user sees the intermediate value for one frame. Worse, Effect-derived
+state drifts out of sync with its inputs the moment you add a new code path that forgets to update it.
 
 **The failure it prevents:** stale UI, render flicker, infinite render loops (`setState` in an Effect
 that depends on that state), and the whole category of "why is my data one keystroke behind" bugs.
+
+> 🟢 **Best practice** — Reach for an Effect only to synchronize with an external system. Deriving
+> state from other state, reacting to a prop change, or chaining state updates are correctness bugs,
+> not optimizations to defer. This is a rule, not a tuning knob.
 
 ### The rule you most want is off by default
 
@@ -79,6 +83,11 @@ export default [
 One rule that catches a large slice of the same bug class, `react-hooks/set-state-in-effect`, **is**
 on in `recommended`. So even the default preset stops the worst offenders; opting into
 `no-deriving-state-in-effects` closes the rest.
+
+> 🟢 **Best practice** — Enable `no-deriving-state-in-effects` explicitly. It is off in `recommended`,
+> so its correctness value is opt-in; the cost of enabling it is near zero (it only fires on a genuine
+> anti-pattern), which is exactly why it belongs on by default in your config even though the preset
+> leaves it off.
 
 ### The anti-patterns and their fixes
 
@@ -130,6 +139,24 @@ no flicker, no extra Effect. The guard is mandatory: without it you loop forever
 `babel-plugin-react-compiler@1.0.0` shipped **2025-10-07**. As of this writing it has been stable for
 roughly nine months. Treat it as a mature, production tool — not a bleeding-edge experiment.
 
+The win it buys, measured on a small reproduction (React 19, jsdom; your numbers will differ in
+production): the *same un-memoized child* that renders **11 times** across 10 parent updates renders
+**once** with the compiler on (`target: '19'`) — same 11→1 result you'd get from a hand-written
+`React.memo`, but with zero source changes. The direction and ratio are the point, not the absolute
+count.
+
+> 🟡 **Optimization** — Turning the compiler on is a performance change, not a correctness one. Its
+> leverage is real and broad, but it is downstream of [purity](fundamentals#purity): it silently
+> skips any component it can't prove safe (see bailouts below), and it changes build output, so it
+> earns the same "verify before you trust it" caution as any optimization.
+>
+> **Pros:** auto-memoization across the whole tree; memoizes cases `useMemo` legally can't; no manual
+> dependency arrays to keep correct. **Cons:** bailouts are silent, so "compiler is on" ≠ "this
+> component is memoized"; adds a Babel transform to the build; can change output if you later remove
+> manual memo. **When NOT to use it:** if your code isn't lint-clean against the `recommended` purity
+> rules, turn those on and fix violations *first* — an impure tree gets you the transform cost with
+> few of the gains.
+
 ### Do not mass-delete your `useMemo` / `useCallback`
 
 This is the dominant advice online and it is **harmful**. The official guidance, verbatim:
@@ -149,6 +176,11 @@ all the memo" is the single worst piece of advice circulating about it.
 The legitimate remaining reason to hand-memoize new code: when a memoized value is an **Effect
 dependency** and you need it referentially stable so the Effect doesn't re-fire.
 
+> 🟢 **Best practice** — Do not mass-delete existing `useMemo`/`useCallback` when you turn the compiler
+> on. This is a correctness rule, not a style preference: `preserve-manual-memoization` is
+> error-level in `recommended` precisely because the compiler reads your manual memo as a semantic
+> signal, and removing it can change compilation output.
+
 **Net policy:**
 
 - Turn the compiler **on**. Turn `eslint-plugin-react-hooks@7` `recommended-latest` **on**.
@@ -156,6 +188,18 @@ dependency** and you need it referentially stable so the Effect doesn't re-fire.
 - Write new code without manual memo. Reach for `useMemo` only for Effect-dep stability or measured
   precise control.
 - `React.memo` at boundaries you don't compile (third-party children) still matters.
+
+> 🟡 **Optimization** — `React.memo` skips a child's [re-render](fundamentals#render-vs-commit) when
+> its props are shallow-equal to last time. Measured on a small reproduction (React 19, jsdom;
+> production will differ): a child whose props never change dropped from **11 renders to 1** across 10
+> parent updates once wrapped in `memo`.
+>
+> **Pros:** cuts wasted renders at a boundary the compiler doesn't reach. **Cons:** it runs a props
+> comparison on *every* parent render, and only pays off when the child is expensive OR re-renders
+> often with stable props. **When NOT to use it:** on a cheap child, or one whose props change every
+> render (a fresh object/array/callback prop defeats the shallow compare) — there the comparison costs
+> more than it saves. Under the compiler, don't hand-wrap components you already compile; save `memo`
+> for third-party or otherwise-uncompiled children.
 
 ### Never pin `@rc`
 
@@ -268,7 +312,13 @@ On React 19.2.7 the default target is correct and no extra dependency is needed.
 ## Render must be pure
 
 Same inputs → same output, no side effects during render. This is the foundation the compiler stands
-on, and it is enforced from three directions.
+on, and it is enforced from three directions. See [purity](fundamentals#purity) for why React is free
+to call, skip, or restart your render at any time — a guarantee that only holds if render is pure.
+
+> 🟢 **Best practice** — Keep render pure: never mutate props, state, or module globals during render.
+> This is a correctness rule first (React may call render any number of times), and under the compiler
+> it is *also* the precondition for memoization — impurity isn't fixed by the compiler, it's silently
+> punished by a bailout.
 
 - **StrictMode** double-invokes render and Effects in dev, surfacing impurity as visible weirdness.
 - **Lint:** `react-hooks/purity`, `immutability`, `globals`, and `set-state-in-render` are all
@@ -296,8 +346,13 @@ cliff, because the impure component is the one that quietly doesn't get memoized
 ## Keys: identity, not order
 
 The index-as-key bug is not about "wrong order." It is about **state and DOM identity being bound to
-list position instead of to the item**. It is invisible with pure-text children, which is exactly why
+list position instead of to the item**. During [reconciliation](fundamentals#reconciliation) the key
+is how React decides *which* previous instance a rendered element corresponds to; bind it to position
+and React matches the wrong instances. It is invisible with pure-text children, which is exactly why
 it survives code review and then corrupts data in production.
+
+> 🟢 **Best practice** — Key list items by a stable identity (`todo.id`), not by array index. This is
+> a correctness rule about instance identity, not a performance tweak.
 
 ```tsx
 // 🔴 BAD — key bound to position
@@ -352,6 +407,21 @@ Draw the line by ownership:
 
 Confusing the two is the root cause of most "React is slow" and "my data is stale" complaints.
 
+> 🟢 **Best practice** — Keep server state in a cache (React Query, SWR, RSC, router loaders), never in
+> `useState`. This is an architecture rule: `useState` + `useEffect` + `fetch` silently commits you to
+> reimplementing caching, dedup, and revalidation by hand.
+
+One of the things a query library or loader does for you is fan independent requests out in parallel.
+Request-waterfall avoidance is measurable: three independent requests (simulated 200/180/220 ms) took
+**604 ms** awaited one-by-one versus **221 ms** with `Promise.all` — measured on a small reproduction
+(React 19, jsdom; production will differ). Parallel time ≈ the single slowest request; sequential ≈
+their sum.
+
+> 🟡 **Optimization** — Parallelize with `Promise.all` only when the requests are genuinely
+> independent. **When NOT to use it:** if request B needs A's result, they *must* stay sequential —
+> `Promise.all` would fire B with missing input. The library gives you the parallelism for free where
+> it's safe; don't force it where a real data dependency exists.
+
 > The `ignore`-flag Effect-fetch pattern in the docs is presented as **damage control** for when you
 > have no framework — not as a recommendation. Don't cargo-cult it as *the* data-fetching pattern.
 
@@ -360,8 +430,9 @@ Confusing the two is the root cause of most "React is slow" and "my data is stal
 ## State placement and composition
 
 **Colocate state; lift only when it's shared.** Hoisting everything to the root is the number-one
-cause of self-inflicted re-render storms. The compiler does not save you here — it memoizes values, it
-does not restructure your tree.
+cause of self-inflicted re-render storms — it widens the [re-render](fundamentals#render-vs-commit)
+blast radius on every update. The compiler does not save you here — it memoizes values, it does not
+restructure your tree.
 
 **Composition beats configuration.** `<Card>{children}</Card>` beats
 `<Card title icon action footerVariant>`. This is a performance pattern, not just an aesthetic one:
@@ -371,9 +442,18 @@ wrapper's own state changes.
 **Prop drilling → context → store, in that order.** Two levels of drilling is fine and *explicit*.
 Reach for context when drilling gets deep, and a real store only when context can't keep up.
 
-> Context is not a store. **Any** change to a context value re-renders **all** of its consumers,
-> regardless of which field each one actually reads. Split contexts by update frequency, and put
-> `dispatch` in its own context — `dispatch` is stable, so its consumers never re-render.
+> 🟢 **Best practice** — Context is not a store. **Any** change to a context value re-renders **all**
+> of its consumers, regardless of which field each one actually reads. Measured on a small
+> reproduction (React 19, jsdom; production will differ): a context holding `{ a, b }`, with only `a`
+> updated 5 times, still re-rendered a consumer that reads *only* `b` all **6 times — every render
+> wasted**. Split contexts by update frequency, and put `dispatch` in its own context — `dispatch` is
+> stable, so its consumers never re-render.
+
+> 🔴 **Advanced / gotcha** — When consumers need different *slices* of the same high-frequency state,
+> a single context can't help — even split, the value object changes on every update. Reach for a
+> selector store (Zustand, Redux `useSelector`) that re-renders only the components whose selected
+> slice actually changed. **When NOT to use it:** low-frequency or genuinely-shared-whole state —
+> there a plain context is simpler and the store is overkill.
 
 ---
 

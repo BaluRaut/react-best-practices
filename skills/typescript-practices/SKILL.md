@@ -44,9 +44,21 @@ and run `tsgo` is describing a state of the world that ended at 7.0 GA.
 ### Is it actually faster?
 
 Measured on a five-file project, same code, same machine, `tsc --noEmit`, warm best-of-3:
-`typescript@6.0.3` → 0.51s, `typescript@7.0.2` → **0.19s**, roughly **2.7x**. A five-file project is
-startup-dominated, so 2.7x is a *floor*, not a headline. Microsoft's larger "8–12x" claims concern
-big codebases and are not reproduced here. Do not quote a 10x number from small-project data.
+`typescript@6.0.3` → 0.51s, `typescript@7.0.2` → **0.19s**, roughly **2.7x** (measured on a small
+reproduction; your numbers will differ in production). A five-file project is startup-dominated, so
+2.7x is a *floor*, not a headline. Microsoft's larger "8–12x" claims concern big codebases and are
+not reproduced here. Do not quote a 10x number from small-project data.
+
+> 🟡 **Optimization** — upgrade to TS 7 for the speed win and the cleaner defaults.
+>
+> **Pros:** measurably faster typecheck (2.7x floor above), strict-by-default, and a clean pass on
+> the React 19 + MUI 9 stack.
+> **Cons:** the programmatic compiler API moved (a hard blocker, below); removed flags —
+> `moduleResolution: node`, `target: es5` — fail *before any file is checked*, so a legacy config
+> can't even start `tsc`.
+> **When NOT to upgrade:** if any dependency reaches for the compiler API (`vue-tsc`, `ts-jest`,
+> `ts-loader`, custom transformers, `@typescript-eslint` type-aware rules) and hasn't shipped TS 7
+> support — pin `6.0.3` and stay side-by-side. Speed is not worth a build you can't run.
 
 ---
 
@@ -108,9 +120,10 @@ strict is false`: `noImplicitAny`, `noImplicitThis`, `strictNullChecks`, `strict
 `strictBindCallApply`, `strictPropertyInitialization`, `strictBuiltinIteratorReturn`, `alwaysStrict`,
 plus `useUnknownInCatchVariables`.
 
-> The rule is no longer "enable strict." The rule is: **never write `"strict": false`.** In a 2026
-> tsconfig that line is an act of *disabling* safety, not declining to add it. Put it on the review
-> checklist.
+> 🟢 **Best practice** — the rule is no longer "enable strict." The rule is: **never write
+> `"strict": false`.** In a 2026 tsconfig that line is an act of *disabling* safety, not declining to
+> add it. It is a correctness default, not an optimization: strict catches implicit `any` and null
+> access at compile time instead of in production. Put it on the review checklist.
 
 Note the subtlety: a generated `tsconfig.app.json` may contain no `"strict": true` at all, and
 `tsc --showConfig` prints the strict flags as `<unset>` — yet strict behaviour fires. The default
@@ -135,6 +148,9 @@ opt-in value now lives.
 | `isolatedModules` | single-file-transpile hazards |
 
 ### `noUncheckedIndexedAccess` — the highest-value flag not in `strict`
+
+> 🟢 **Best practice** — turn it on. It closes a correctness hole `strict` leaves open, not a
+> speculative optimization.
 
 **Rule:** turn it on. **Why:** `arr[i]` and `record[key]` are the most common source of production
 `undefined` crashes, and `strict` does not cover them. This compiles clean under default TS 7
@@ -161,11 +177,17 @@ function firstUpper(names: string[]): string {
 }
 ```
 
-> **The gotcha that kills adoption:** the flag does **not** narrow across a length check.
+> 🔴 **Gotcha that kills adoption:** the flag does **not** narrow across a length check.
 > `if (arr.length > 0) arr[0].foo()` still errors — TS does not correlate `.length` with index
 > validity. Teams that don't know this rip the flag back out after a day. The idiomatic escapes:
 > destructure (`const [first] = arr`), use `.at(0)`, or iterate with `for...of` (the element type
 > there is not `| undefined`).
+
+**Tradeoffs.** *Pros:* the single highest-value undefined-crash catcher not already in `strict`.
+*Cons:* every existing `arr[i]`/`record[key]` becomes a type error, so retrofitting a large codebase
+is noisy, and the length-check blind spot above surprises people. **When NOT to turn it on:**
+essentially never for new code; on a large legacy codebase, gate it behind a scheduled sweep rather
+than flipping it and drowning in errors mid-sprint.
 
 ### `exactOptionalPropertyTypes` — subtle, real, a migration tax
 
@@ -192,6 +214,14 @@ If you genuinely need "present but holding `undefined`", write it explicitly:
 `timeout?: number | undefined`. Note this interacts badly with older `@types` packages authored
 before the flag existed — expect errors sourced from `node_modules`, not your own code.
 
+> 🟡 **Optimization** — on for new code; it has a genuine cost retrofitting.
+>
+> **Pros:** distinguishes "absent" from "explicitly `undefined`", killing the merge-defaults bug
+> above. **Cons:** older `@types` were written without it, so you inherit errors from `node_modules`
+> you can't fix; it also pairs badly with `Partial`. **When NOT to turn it on:** a codebase that
+> spreads a lot of partial option bags through untyped third-party helpers — the friction can
+> outweigh the bug it prevents until those types are updated.
+
 ### `noImplicitOverride`
 
 **Rule:** on for any codebase with class inheritance.
@@ -208,6 +238,10 @@ silently stops overriding anything and becomes dead code that still typechecks. 
 the member, deleting the base method errors instead.
 
 ### `verbatimModuleSyntax`
+
+> 🟢 **Best practice** — on, especially with bundlers and `isolatedModules`. It removes a class of
+> silent, bundle-only bugs (import-elision dropping side effects), which makes it a correctness rule,
+> not a preference.
 
 **Rule:** on, especially with bundlers and `isolatedModules`. It enforces one simple law: **imports
 without `type` are always emitted; imports with `type` are always erased.** No inference, no elision
@@ -314,6 +348,10 @@ bundler now.
 
 ## `satisfies` vs `as` vs annotation
 
+> 🟢 **Best practice** — reach for `satisfies` to validate a literal without losing its narrow type;
+> keep `as` for the three legitimate uses below. Preferring `satisfies` over `as` is a
+> correctness rule: `as` silences the checker, `satisfies` runs it.
+
 **The rule:** annotation to *constrain* a value; `satisfies` to *check without widening*; `as` almost
 never.
 
@@ -361,13 +399,17 @@ lie**. The bug it creates always surfaces far from where it was written. Legitim
    (Object.keys(config) as (keyof typeof config)[]).forEach(/* … */);
    ```
 
-> **`as unknown as X` is a double assertion.** It exists solely to defeat TS's own "these types
-> don't sufficiently overlap" guard — TypeScript telling you you're wrong and you overruling it
-> twice. In review, treat it as requiring a written justification.
+> 🔴 **Gotcha — `as unknown as X` is a double assertion.** It exists solely to defeat TS's own
+> "these types don't sufficiently overlap" guard — TypeScript telling you you're wrong and you
+> overruling it twice. Reach for it knowingly and rarely; in review, treat it as requiring a written
+> justification.
 
 ---
 
 ## `unknown` over `any` at every boundary
+
+> 🟢 **Best practice** — `unknown` at every trust boundary (`JSON.parse`, `res.json()`, `catch`).
+> This is a correctness rule: it forces you to prove a shape before you use it.
 
 **Rule:** `unknown` at every trust boundary. **Why:** `any` is not "a type" — it's a
 *checker-disable switch* that propagates silently through every downstream expression.
@@ -399,6 +441,9 @@ renderUser(user.data.name);             // provably shaped
 ---
 
 ## Discriminated unions over optional-bag types
+
+> 🟢 **Best practice** — model *states*, not *fields*. Making illegal states unrepresentable is a
+> correctness rule; the exhaustive `switch` turns "did I handle every case?" into a compile error.
 
 **Rule:** model *states*, not *fields*. **Why:** optional bags can represent states that cannot exist
 and force defensive `!` everywhere.
@@ -451,6 +496,10 @@ This converts "did I update every consumer?" from a code-review question into a 
 
 ## Enums vs union literals vs `as const` objects
 
+> 🟢 **Best practice** — prefer union literals; use `as const` objects when you need a runtime value;
+> avoid `enum`. This is a rule with mechanical backing (`erasableSyntaxOnly` rejects `enum`), not a
+> style preference.
+
 **The answer: prefer union literals; use `as const` objects when you need a runtime value; avoid
 `enum`.** Three concrete, non-stylistic reasons to avoid `enum`:
 
@@ -484,6 +533,10 @@ with single-file transpilation (`isolatedModules`).
 ---
 
 ## `type` vs `interface`
+
+> 🟢 **Best practice** — pick one and be consistent; default to `type`. The tie-breaker is
+> correctness, not taste: `interface` silently *merges* two same-named declarations, while `type`
+> errors — so `type` fails loudly where `interface` fuses unrelated shapes.
 
 **It barely matters — pick one and be consistent. `type` is the better default.** The genuinely
 load-bearing differences (everything else is folklore):
@@ -532,7 +585,7 @@ Without it, every route table / column def / state-machine config API forces `as
 call site, and one omission silently degrades types to `string[]` with no error. `const T` moves
 correctness from convention into the signature.
 
-> **Gotcha:** `const T` affects **inference at the call site only**. It does nothing if the caller
+> 🔴 **Gotcha:** `const T` affects **inference at the call site only**. It does nothing if the caller
 > passes an already-widened variable — `const arr = ["a","b"]; pick(arr)` is still `string[]`,
 > because the widening happened before the call.
 
@@ -554,6 +607,14 @@ syntactically — which is what lets tools emit declarations in parallel without
 `satisfies` and inferred generic returns require *inference*, so they're rejected at exported
 positions.
 
+> 🟡 **Optimization (libraries only)** — `isolatedDeclarations` speeds up `.d.ts` emit and forces a
+> stable API surface.
+>
+> **Pros:** parallel, checker-free declaration emit; every exported type is spelled out, so the
+> public API can't silently drift. **Cons:** you lose `satisfies` and inferred generic returns at
+> every exported position (TS9010), forcing explicit annotations everywhere. **When NOT to use it:**
+> application code — the emit speed is irrelevant and the lost inference is pure friction.
+
 **Practical:** `isolatedDeclarations` is a **library** feature (fast `.d.ts` emit, forced API
 stability). If you adopt it you lose ergonomic inference on exported consts. Apps generally shouldn't
 bother.
@@ -561,6 +622,15 @@ bother.
 ---
 
 ## Branded / nominal types at boundaries
+
+> 🟡 **Optimization** — brand identifiers and units only where structural sameness actually causes
+> bugs. It buys real safety but adds a validating constructor and a re-entry point at every boundary.
+>
+> **Pros:** turns invisible `getUser(orderId)` mix-ups into compile errors, at zero runtime cost.
+> **Cons:** every value must pass through a constructor; brands don't survive `JSON.parse`, so every
+> boundary needs re-validation; the `Brand<T,B>` machinery is unfamiliar to readers.
+> **When NOT to use it:** a codebase where the ID types rarely cross, or where a schema validator
+> already owns the boundary — don't brand every `string` reflexively.
 
 **Rule:** brand identifiers and units that are structurally identical but semantically distinct.
 **Why:** TS is structural — `UserId`, `OrderId`, and `string` are the *same type*, so every
@@ -618,7 +688,7 @@ type Handlers = { [K in Events as `on${Capitalize<K>}`]: () => void };
 The genuine win is one source of truth: add `"blur"` to `Events` and `onBlur` becomes required
 everywhere automatically.
 
-> **Where it bites:** template literal types over unions are **combinatorial**. `${A}-${B}-${C}` with
+> 🔴 **Gotcha — where it bites:** template literal types over unions are **combinatorial**. `${A}-${B}-${C}` with
 > 100 members each = 1,000,000 union members. TS caps union size (widely documented at ~100,000
 > members — *medium confidence on the exact figure*) and errors with "Expression produces a union
 > type that is too complex to represent." The failure hits in CI, not on your laptop, when someone
@@ -627,6 +697,10 @@ everywhere automatically.
 ---
 
 ## Type guards & assertion functions
+
+> 🔴 **Advanced / trap** — a hand-written type predicate (`x is User`) is a claim TS believes
+> unconditionally; a wrong one is a silent lie that crashes downstream. Prefer a schema validator
+> that *derives* the type; reach for a hand-written guard knowingly, as a last resort.
 
 **Rule:** a hand-written type predicate is an **unchecked promise** — TS believes it unconditionally.
 Prefer inference/validators; when you must write one, treat it as security-critical.
@@ -645,7 +719,7 @@ function isUser(x: unknown): x is User {
 }
 ```
 
-> **The gotcha that bites:** assertion functions **require an explicit type annotation on the
+> 🔴 **Gotcha that bites:** assertion functions **require an explicit type annotation on the
 > declaration**. This fails with the famously opaque `TS2775: Assertions require every name in the
 > call target to be declared with an explicit type annotation`:
 > ```ts
@@ -662,6 +736,9 @@ resort. Option (2) inverts the trust — the type comes from the validator, so t
 ---
 
 ## Generics that earn their keep
+
+> 🟢 **Best practice** — a type parameter must appear **at least twice** (relating input to output);
+> a `T` used only in the return position is an `as` in disguise, not real generic safety.
 
 **Rule:** a type parameter must appear **at least twice** — otherwise it's doing nothing.
 
@@ -688,6 +765,9 @@ Write the concrete version first; generalize only on the third duplication.
 ---
 
 ## Utility types with sharp edges
+
+> 🔴 **Gotchas** — most utility types are fine and boring, but a few fail *open* (they accept typos
+> or silently change your type). Know these before you lean on them.
 
 Fine and boring: `Partial`, `Required`, `Readonly`, `Pick`, `Omit`, `Record`, `ReturnType`,
 `Awaited`, `NoInfer`. The traps worth teaching:

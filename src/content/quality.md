@@ -59,6 +59,19 @@ The defensible 2026 recommendation:
 - **Biome as the formatter** — its formatter is a mature, Prettier-compatible drop-in. Splitting
   "Biome for format, ESLint for lint" is a legitimate config that sidesteps the type-inference gap.
 
+> 🟢 **Best practice** — run *a* linter that enforces `react/rules-of-hooks` in CI. Which engine is a
+> tuning decision; enforcing the rule at all is a correctness rule. The Vite template's oxlint default
+> already does this out of the box.
+
+> 🟡 **Optimization** — adding a *type-aware* second pass (typescript-eslint or `tsgolint`) has a real
+> cost, so add it only when a measured class of bug justifies it.
+>
+> **Pros:** catches floating/misused promises and other whole-program mistakes a syntactic linter
+> physically cannot see. **Cons:** needs the type checker to run, so it is 10–20× slower than plain
+> oxlint (vendor-reported) and, on TS 7, collides with typescript-eslint's `<6.1.0` peer bound.
+> **When NOT to use it:** a UI-heavy app with little async plumbing gets marginal value for the CI-time
+> cost — ship the fast syntactic pass and skip it.
+
 ### The typescript-eslint / TypeScript 7 collision
 
 If you *do* add typescript-eslint, you hit a hard wall. `typescript-eslint@8.64.0` declares
@@ -136,6 +149,10 @@ Query in this priority order, always:
 role or label, **a screen reader cannot reach it either**. The priority list is an accessibility check
 wearing a query API's clothes.
 
+> 🟢 **Best practice** — query by role/label first. This is a correctness rule, not a style
+> preference: a test that can only find an element by test id is silently documenting that the element
+> is inaccessible.
+
 ```tsx
 // BAD — testid tells you nothing about whether the element is reachable
 const submit = screen.getByTestId('submit-btn')
@@ -165,6 +182,10 @@ await user.click(screen.getByRole('button', { name: /delete/i }))
 
 `userEvent` must be `await`ed and set up via `userEvent.setup()` per test.
 
+> 🟢 **Best practice** — reach for `userEvent` by default; it is a correctness rule. `fireEvent` is not
+> wrong to *exist* (it is the right tool for dispatching a single low-level event you can't express as a
+> user gesture), but as the default it lets false-green tests through.
+
 ### What NOT to test
 
 - **Implementation details** — `useState` internals, whether a `memo` hit, internal call counts.
@@ -180,6 +201,9 @@ await user.click(screen.getByRole('button', { name: /delete/i }))
 - **MSW for the network** (`msw` 2.15.0) — intercept at the network layer, not by mocking `fetch` or
   axios. Mocking `fetch` tests your mock; MSW tests your serialization, URL building, and error paths.
   MSW handlers are shareable across Vitest, Browser Mode, and Playwright — one source of fixture truth.
+
+> 🟢 **Best practice** — mock at the network boundary, not the client. A test that stubs your `fetch`
+> wrapper passes even when your URL building or JSON shape is wrong; MSW exercises that real seam.
 - **Playwright** (`@playwright/test` 1.61.1) is for critical *flows* — auth, checkout — not coverage.
   The pyramid holds; the anti-pattern is E2E-ing what an RTL test proves more cheaply.
 
@@ -200,6 +224,10 @@ disabled semantics — a `<button>` gives all four for free.
 // GOOD
 <button onClick={save}>Save</button>
 ```
+
+> 🟢 **Best practice** — pick the native element before you reach for `role`. It is a correctness rule:
+> the browser gives you keyboard behavior, focus, and disabled semantics that you would otherwise have
+> to reimplement (and usually get wrong).
 
 ### Focus management on route change is THE SPA a11y bug
 
@@ -232,6 +260,11 @@ function Page({ title, children }: { title: string; children: React.ReactNode })
 }
 ```
 
+> 🟢 **Best practice** — move focus on every route change. This is a correctness rule; the browser does
+> it for free on a full page load and a client-side router breaks that guarantee. The empty
+> [dependency array](fundamentals#dependency-arrays) here fires the effect once per mount — which is
+> exactly one focus move per navigation when the router remounts the page.
+
 ### Keyboard traps and focus return
 
 Modals must trap focus *inside* while open and **return focus to the trigger** on close. MUI's
@@ -252,6 +285,10 @@ screen-reader/browser pairs. Render the empty container up front, then write int
 // GOOD — container is present from the start; the text change is announced
 <div role="alert" aria-live="assertive">{error}</div>
 ```
+
+> 🔴 **Gotcha** — the empty-then-write ordering is a real trap: both versions look correct in review and
+> pass a snapshot test, but the first is silent for most screen-reader/browser pairs. There is no lint
+> rule and no console warning for it — you only catch it by testing with an actual screen reader.
 
 ### Contrast
 
@@ -290,8 +327,9 @@ current trio is **LCP, INP, CLS**.
 
 Why INP matters for React specifically: FID measured only *input delay* — the gap before your handler
 ran — and React apps scored well because that gap is short. INP measures **input → next paint**, which
-includes your render and commit. **React apps that looked fine under FID regress visibly under INP.**
-That is the entire reason INP, not LCP, is the metric to watch for interactive React UIs.
+includes your [render and commit](fundamentals#render-vs-commit). **React apps that looked fine under
+FID regress visibly under INP.** That is the entire reason INP, not LCP, is the metric to watch for
+interactive React UIs.
 
 ### What actually causes slow React
 
@@ -305,22 +343,34 @@ Not "not enough `memo`." In rough order of real-world impact:
 4. **Context re-render storms** — one context holding `{ user, theme, cart }` re-renders every
    consumer of all three on any change. The fix is splitting contexts by change frequency, not `memo`.
 5. **New object/array/function identities in props each render**, defeating memoization you already
-   paid for.
+   paid for. A fresh `{}` or `() => {}` fails the [reconciliation](fundamentals#reconciliation)
+   identity check, so the memoized child re-renders anyway.
 6. Only then: genuinely expensive renders.
+
+> 🟢 **Best practice** — attack this list top-down, not bottom-up. The reflex to reach for `memo`
+> targets item 6, the *smallest* lever. Shipping less JS and splitting contexts by change frequency are
+> correctness-of-architecture decisions that beat any render optimization.
 
 ### React Compiler changes the memo advice — but is not a performance strategy
 
 `babel-plugin-react-compiler` is stable at **1.0.0** (shipped 2025-10-07; treat it as mature, not
 brand-new). It auto-memoizes, so **hand-written `useMemo`/`useCallback`/`memo` are largely obsolete for
-new code**. But it does **not** fix problems #1–#4 above — shipping less JS, splitting contexts, and
-virtualizing are still manual work. The compiler is not a performance strategy; it is a render-cost
-eliminator.
+new code** — it produces the same skip-the-unchanged-child win a hand-written `React.memo` gives you,
+with no source change. But the compiler does **not** fix problems #1–#4 above — shipping less JS,
+splitting contexts, and virtualizing are still manual work. The compiler is not a performance strategy;
+it is a render-cost eliminator.
 
-> Do **not** mass-delete existing `useMemo`/`useCallback` when you turn the compiler on. react.dev
-> states that removing existing memoization *can change compilation output*, and the plugin ships
-> `react-hooks/preserve-manual-memoization` as an **error-level** rule — the compiler consumes manual
-> memo as a semantic signal. The "delete all your memo" advice that dominates online is actively
-> harmful.
+> 🟡 **Optimization** — reach for a *manual* `useMemo`/`useCallback`/`memo` only when the compiler is
+> off or has [bailed](fundamentals#purity) on that component, and a measured cost justifies it. Every
+> manual memo adds a comparison on each render that only pays off for an expensive child or one that
+> renders often with stable props.
+
+> 🔴 **Advanced / gotcha** — do **not** mass-delete existing `useMemo`/`useCallback` when you turn the
+> compiler on. react.dev states that removing existing memoization *can change compilation output*, and
+> the plugin ships `react-hooks/preserve-manual-memoization` as an **error-level** rule — the compiler
+> consumes manual memo as a semantic signal. The "delete all your memo" advice that dominates online is
+> actively harmful. Compiler bailouts are also silent and per-function: a render-phase mutation can make
+> it skip a component with no warning, and you're back to un-memoized renders believing you're covered.
 
 ### Bundle budgets — enforce them or they don't exist
 
@@ -328,13 +378,17 @@ Vite's `build.rollupOptions.output.manualChunks` splits chunks and `chunkSizeWar
 warning — but the warning **does not fail the build**. That is the gotcha: a budget that only warns is
 not a budget. Real enforcement needs `size-limit` (12.1.0) or a CI check on the `dist` output.
 
+> 🟢 **Best practice** — enforce the budget in CI, don't just warn. An advisory limit is one hurried PR
+> away from silently doubling first-load JS; a failing check is the only version that actually holds.
+
 > Vite 8 ships **Rolldown** as its bundler (confirmed by the build warning referencing
 > `build.rolldownOptions.output.codeSplitting`) — no opt-in required. The `rollupOptions` names still
 > work for compatibility.
 
 ### Code splitting
 
-Route-level splitting via `React.lazy` + `Suspense` is the highest-value split you can make.
+Route-level splitting via `React.lazy` + `Suspense` is the highest-value split you can make. It
+directly attacks problem #1 — too much JS shipped — which beats every render optimization.
 
 ```tsx
 // GOOD — route-level split, default export required
@@ -344,6 +398,17 @@ const Dashboard = lazy(() => import('./features/dashboard/Dashboard'))
   <Dashboard />
 </Suspense>
 ```
+
+> 🟢 **Best practice** — route-split any multi-route SPA. Measured on this very site's own build,
+> route-splitting the entry, the markdown renderer, and each doc page took first-load JS from
+> **258 KB → 92 KB gzip** (measured on a real build; your numbers will differ). The markdown renderer
+> (~101 KB gzip) now loads only when you open an article.
+>
+> **Pros:** the browser downloads, parses, and executes only the code the first screen needs.
+> **Cons:** a lazy route shows a brief fallback on first navigation — a flash where there was none.
+> **When NOT to use it:** don't split a component that is on the critical path of the *current* screen,
+> and don't over-split into dozens of tiny chunks — each one is a request and a fallback. Mitigate the
+> flash by prefetching on link hover for hot routes.
 
 Two gotchas:
 
@@ -356,6 +421,10 @@ Two gotchas:
 - `loading="lazy"` for below-the-fold images, but **never on the LCP image** — you would delay the
   exact thing INP/LCP measure. Use `fetchpriority="high"` on the LCP image instead.
 - Always set `width`/`height` (or `aspect-ratio`). Missing dimensions are the #1 cause of CLS.
+
+> 🔴 **Gotcha** — `loading="lazy"` is a 🟢 default for below-the-fold images but a footgun on the LCP
+> image: the one blanket "lazy-load all images" rule actively worsens the metric it looks like it
+> should help. Know which image is your LCP element before you reach for it.
 
 ### Measure before you memoize
 
@@ -386,6 +455,10 @@ public entry (`features/checkout/index.ts`), or `/shared`. Enforce it with
 `eslint-plugin-boundaries` (7.0.2) or `import/no-restricted-paths`. Unenforced, this convention decays
 within a quarter. Colocate tests next to source.
 
+> 🟢 **Best practice** — organize by feature and enforce the boundary in lint. The boundary is the
+> whole value: unenforced, "don't import internals" is a comment nobody obeys, and the layout's one real
+> benefit — being able to delete a feature by deleting its folder — quietly evaporates.
+
 ### The barrel-file problem
 
 A barrel is an `index.ts` that re-exports a whole folder (`export * from './Button'`). The real costs:
@@ -405,6 +478,25 @@ A barrel is an `index.ts` that re-exports a whole folder (`export * from './Butt
 > multiplier is published here because none was benchmarked; the mechanism is documented, the magnitude
 > is workload-dependent.
 
+A small reproduction shows exactly where the line is. Importing **one** symbol out of 20:
+
+| Import path | Bundle | Modules pulled into the graph |
+|---|---|---|
+| Direct (`./mods/m1`) | **143 bytes** | **2** |
+| Via barrel, side-effectful modules | **1571 bytes** | **22** |
+
+With *pure* modules the two are identical (99 bytes either way — tree-shaking drops the unused 19). Add
+a side effect to each module (a registration, a style import, a `console`) and tree-shaking can no
+longer drop them, so the whole barrel graph rides along. Measured on a small reproduction; the point is
+the mechanism, not the byte count.
+
+> 🟡 **Optimization / nuance** — a barrel is not automatically bad. **Pros:** one tidy import surface;
+> harmless for pure, side-effect-free modules with `"sideEffects": false` set. **Cons:** dev cold-start
+> and HMR crawl the whole re-exported graph on first import regardless of tree-shaking, and side-effectful
+> modules defeat it in prod too (143 B/2 modules → 1571 B/22 above). **When NOT to use it:** don't put a
+> barrel over a large folder of components you import individually in the dev-heavy hot path, and never
+> over modules with import-time side effects.
+
 ### MUI imports: named is fine for production, deep helps dev
 
 MUI v9 supports named imports (`import { Button } from '@mui/material'`), and modern tree-shaking
@@ -412,6 +504,12 @@ handles them for production bundles. The old v4-era rule — "always deep-import
 — is stale for production. But deep imports still measurably help **dev cold-start** for the barrel
 reasons above. Different problem, different fix: default to named imports; reach for deep imports only
 if dev startup is a felt pain.
+
+> 🟡 **Optimization** — deep imports (`@mui/material/Button`) trade readability for dev-server speed.
+> **Pros:** the dev server transforms only the one module, not MUI's whole re-export graph on cold start.
+> **Cons:** noisier import lines and a rule your team has to remember. **When NOT to use it:** for
+> production bundle size it buys nothing on v9 — named imports tree-shake fine — so don't adopt it as a
+> blanket rule; adopt it only when you have actually felt slow cold-starts.
 
 ---
 

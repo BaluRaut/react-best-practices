@@ -17,7 +17,7 @@ const STACK = [
   ['Vite', '8.1.5'],
 ]
 
-const ORDER: Section[] = ['versions', 'foundations', 'stack', 'meta']
+const ORDER: Section[] = ['fundamentals', 'foundations', 'architecture', 'versions', 'stack', 'meta']
 
 export function Home() {
   const skillCount = DOCS.filter((d) => d.skill).length

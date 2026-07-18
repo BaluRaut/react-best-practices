@@ -89,6 +89,12 @@ class Boundary extends React.Component {
 }
 ```
 
+> 🟢 **Best practice** — derive the fallback in `getDerivedStateFromError` (render-phase) and log in
+> `componentDidCatch` (commit-phase). This is a correctness rule, not an optimization: the split
+> mirrors [render vs commit](fundamentals#render-vs-commit). If you swap the UI from
+> `componentDidCatch` via `setState`, the broken subtree has already committed once — torn — before
+> your fallback paints.
+
 **Gotchas that bite in production:**
 
 - Error boundaries do **not** catch: event handlers, `setTimeout`/`requestAnimationFrame` callbacks,
@@ -115,9 +121,14 @@ npx react-codemod rename-unsafe-lifecycles
 
 **Why they're unsafe (the rationale that matters):** these are *render-phase* lifecycles. Fiber can
 start rendering, abort, and start again. A render-phase lifecycle can therefore run **multiple times
-for one commit**, or run and never commit at all. Any side effect there — a fetch, a subscription, a
-mutation — fires an unpredictable number of times. This is the defining hazard, and it stops being
-theoretical the moment concurrent rendering is enabled.
+for one commit**, or run and never commit at all — a violation of [purity](fundamentals#purity). Any
+side effect there — a fetch, a subscription, a mutation — fires an unpredictable number of times.
+This is the defining hazard, and it stops being theoretical the moment concurrent rendering is
+enabled.
+
+> 🟢 **Best practice** — run `rename-unsafe-lifecycles` even though the unprefixed names still work in
+> React 19. The rename is free, reversible, and turns an invisible hazard into a reviewable `UNSAFE_`
+> in every diff. A correctness/maintainability rule, not an optimization.
 
 ### The correction most references get wrong
 
@@ -200,6 +211,12 @@ value is both derived from props *and* updatable via `setState`, no one can answ
 The `key`-based reset is almost always the right answer, and it survives the class→hooks migration
 unchanged.
 
+> 🟢 **Best practice** — reset component state by changing its `key`, not by copying props into state.
+> A new `key` makes [reconciliation](fundamentals#reconciliation) unmount the old instance and mount
+> a fresh one, so state resets for free regardless of whether the prop *value* changed — which is
+> exactly why the `if (props.email !== prevState.email)` guard fails on two accounts that share an
+> email. This is a correctness rule.
+
 ## Context: three APIs, one of which is now deleted
 
 React 16.3 shipped `React.createContext()`. 16.6 added `contextType` for classes. The **legacy**
@@ -248,6 +265,10 @@ The stated reason `createContext` exists: it *"supports deep updates"* — it pr
 components that return `false` from `shouldComponentUpdate`. Legacy context did not, which is why
 theme/locale updates mysteriously failed to reach leaves in `PureComponent` trees.
 
+> 🟢 **Best practice** — use `createContext` over the legacy `contextTypes`/`getChildContext` API.
+> Beyond the deep-update fix, legacy context is **removed in React 19**, so this is one of the few
+> 16-era patterns that hard-breaks rather than warns.
+
 > `contextType` (class) consumes exactly **one** context. Needing two forces you back to nested
 > `<Consumer>` render props — the pyramid that `useContext` exists to delete. This is one of the
 > strongest concrete arguments for migrating a given component to a function.
@@ -255,6 +276,22 @@ theme/locale updates mysteriously failed to reach leaves in `PureComponent` tree
 > `<Provider value={{ user, setUser }}>` allocates a new object every render and re-renders every
 > consumer. Memoize the value. This bites *worse* after migrating to hooks, because inline object
 > literals in JSX are more idiomatic there.
+
+> 🟡 **Optimization** — memoizing the Provider `value` (and, separately, splitting one context into
+> several) only earns its keep once a context updates often and has many consumers. **Any** context
+> value change re-renders **every** consumer, even ones reading a field that didn't change: in a
+> small reproduction (React 19, jsdom) a context holding `{ a, b }` updated on `a` alone still
+> re-rendered a `b`-only consumer on all 6 renders — every one wasted. Production numbers will
+> differ, but the direction is fixed.
+>
+> **Pros:** a stable `value` lets consumers that also sit behind `memo`/`PureComponent` bail out;
+> splitting unrelated state into separate contexts stops cross-field fan-out entirely.
+> **Cons:** `useMemo` adds bookkeeping and a dependency array to keep honest; splitting multiplies
+> Providers.
+> **When NOT to use it:** low-frequency values (theme, locale, current user set once at login) with
+> few consumers — the fan-out is invisible and the memo is pure ceremony. Reach for a selector store
+> (Zustand, Redux `useSelector`) instead of hand-splitting once consumers genuinely need different
+> high-frequency slices.
 
 ## React 16.14 and the new JSX transform
 
@@ -294,12 +331,20 @@ migration project" is that it's a giant untested refactor with zero user-visible
 done, gets deprioritized, and leaves you maintaining two idioms forever with no migration completed.
 Convert a class when you're already changing it for a real reason.
 
+> 🟢 **Best practice** — adopt hooks at the boundary (new components, files you're already touching),
+> not as a top-down rewrite. Classes have no removal plans and still work in React 19, so a class is
+> never a bug to fix on sight; a half-finished rewrite is.
+
 ### `eslint-plugin-react-hooks` is non-optional
 
 The React team *"strongly recommend[s]"* it. This is not a style preference — the Rules of Hooks are
 a correctness requirement of the implementation. Hook state is stored positionally in a linked list
 on the fiber; a conditional hook shifts every subsequent hook's slot and hands you another hook's
 state.
+
+> 🟢 **Best practice** — enable `eslint-plugin-react-hooks` and treat `rules-of-hooks` as an error.
+> Because slots are positional, this catches a correctness bug the type system cannot see; there is
+> no case where you want a conditional or reordered hook.
 
 ```jsx
 // BAD — conditional hook call. The linter catches this. Without it, useState
@@ -333,6 +378,14 @@ The `cancelled` flag is the part people omit. Without it, fast `userId` changes 
 win the race and overwrite fresher data — a bug that only appears on slow networks, i.e. in
 production and never on localhost.
 
+> 🟢 **Best practice** — every effect that starts async work or subscribes to something returns a
+> cleanup that cancels it. This is the correctness rule the whole hooks model rests on; it's also
+> what makes an effect idempotent, which is exactly what React 18's StrictMode double-invoke (below)
+> checks for. When several effects each fetch independent, unrelated data, fire them in parallel
+> rather than awaiting one after another — in a small reproduction (React 19, jsdom) three
+> independent requests took 604 ms sequentially vs 221 ms under `Promise.all` (production will
+> differ). If request B needs A's result, they *must* stay sequential.
+
 ### The class→hooks mapping is not 1:1 (this is the real migration cost)
 
 | Class | Hooks | Trap |
@@ -345,9 +398,11 @@ production and never on localhost.
 | `shouldComponentUpdate` | `React.memo` | `memo` is a shallow prop compare only; it cannot see state or context. Not a drop-in for a custom `sCU`. |
 | `getDerivedStateFromProps` | (nothing) | No equivalent, by design. Use `key`, or compute during render. |
 
-The `useEffect` dependency array is where migrations actually fail. `exhaustive-deps` is a warning,
-not an error, and every large 16-era codebase has hundreds of suppressed instances. A lied-about dep
-array is a stale closure: the effect keeps reading the first render's values forever.
+The `useEffect` [dependency array](fundamentals#dependency-arrays) is where migrations actually fail.
+`exhaustive-deps` is a warning, not an error, and every large 16-era codebase has hundreds of
+suppressed instances. A lied-about dep array is a [stale closure](fundamentals#closures): the effect
+keeps reading the first render's values forever — this is the class→hooks trap the mapping table
+above calls the #1 migration bug.
 
 ```jsx
 // BAD — lying to the linter. `count` is frozen at 0 forever; the interval
@@ -368,6 +423,11 @@ useEffect(() => {
 
 The rule: when the linter demands a dep you don't want, **change the code so the dep isn't needed**
 (functional updates, refs, moving the function inside the effect). Never silence it.
+
+> 🟢 **Best practice** — resolve an exhaustive-deps warning by removing the dependency honestly, not
+> by disabling the rule. The functional updater `setCount(c => c + 1)` reads the latest value without
+> naming `count` as a dep, so the [closure](fundamentals#closures) is no longer stale. A correctness
+> rule: a suppressed warning is an unaudited bug, not a resolved one.
 
 ## `React.memo` / `lazy` / `Suspense` (16.6)
 
@@ -403,6 +463,21 @@ function List({ items }) {
 Note the pattern: pass `item.id` back *up* through a stable callback rather than closing over it in a
 per-row arrow. That's what makes the reference stable.
 
+> 🟡 **Optimization** — `React.memo` (plus the `useCallback`/hoisting that keeps its props stable) is
+> a render-count optimization, never a correctness fix. When it lands, it lands hard: in a small
+> reproduction (React 19, jsdom) a child whose props never changed rendered **11 times** across 10
+> parent updates as a plain component and **1 time** wrapped in `memo` (production will differ). But
+> `memo` runs a shallow prop compare on *every* parent render, so on the BAD example above — fresh
+> `onSelect`/`style` each render — it only adds cost.
+>
+> **Pros:** skips re-rendering (and re-[reconciling](fundamentals#reconciliation)) a subtree whose
+> props are referentially unchanged; the win scales with how often the parent re-renders.
+> **Cons:** the comparison itself isn't free, and it's load-bearing on *every* prop staying stable —
+> one inline `{}` or arrow silently defeats it while you keep paying the compare.
+> **When NOT to use it:** cheap children, children that re-render rarely, or children whose props you
+> can't or won't keep stable. On this stack, prefer letting the React Compiler memoize automatically
+> over hand-wrapping — but verify the compiler didn't silently bail before deleting a manual `memo`.
+
 ### Suspense/lazy in the 16 era — the production gotchas
 
 - **`React.lazy` only supports default exports.** *"React.lazy currently only supports default
@@ -415,6 +490,17 @@ per-row arrow. That's what makes the reference stable.
 - **Wrap lazy boundaries in an error boundary.** A chunk fetch fails on a flaky network, or after a
   deploy invalidates the old chunk hash; without a boundary the whole tree unmounts. The "user had
   the tab open during a deploy and the app white-screened" incident is exactly this.
+
+> 🟢 **Best practice** — pair every `Suspense`/`lazy` boundary with an error boundary. Since 16.0 an
+> uncaught error unmounts the whole tree, and a failed chunk load *is* an uncaught error; the
+> boundary is what turns a white screen into a retry prompt. Correctness, not optimization.
+
+> 🟡 **Optimization** — route-splitting with `lazy` cuts first-load JS but adds a fallback on first
+> navigation. Splitting this very reference site's build dropped the eager bundle from **258 KB** to
+> a **92 KB** entry (gzip), deferring the markdown renderer and each doc page until opened (measured
+> on this repo; your split will differ). **When NOT to use it:** a tiny SPA where the whole app is
+> smaller than the chunking overhead, or a route reached on nearly every session — prefetch that one
+> on link hover instead of paying a fallback for it.
 
 ## What breaks moving off 16
 

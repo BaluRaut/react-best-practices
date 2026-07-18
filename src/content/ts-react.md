@@ -38,6 +38,18 @@ deliberately:
 }
 ```
 
+> 🟢 **Best practice** — turn these two on in a new project. They close soundness holes `strict`
+> deliberately leaves open (array/index access and the `undefined`-vs-absent distinction), so the
+> compiler catches a class of `undefined` bugs before runtime does.
+
+**Tradeoffs.** _Pros:_ every `arr[i]` and every optional property now forces you to handle the
+missing case, turning a category of runtime `TypeError` into a compile error. _Cons:_ real friction
+on existing code — `noUncheckedIndexedAccess` makes every indexed read `T | undefined`, which is
+noisy in hot loops and tuple-heavy code where you know the index is in range. **When NOT to use it:**
+enabling both on a large legacy codebase mid-migration floods you with thousands of errors unrelated
+to the React 19 upgrade you are actually doing. Land the `@types/react@19` errors first, then adopt
+these deliberately, module by module.
+
 > The default flipped in the compiler, not in the config file. `showConfig` prints `<unset>` for
 > `strict` while behaviour is strict, which trips people writing tooling that reads the effective
 > config. Trust the compiler's behaviour, not the printed config.
@@ -78,6 +90,11 @@ Prefer dropping `FC` entirely (see [Generic components](#generic-components-are-
 plain function with an explicit props type is now strictly better: it does not inject phantom
 `children`, and it does not block generics — the two things `FC` used to do are one bug and one
 limitation.
+
+> 🟢 **Best practice** — type components as plain functions with an explicit props type, not `FC`.
+> This is a maintainability/correctness rule, not an optimization: it costs nothing at runtime and
+> removes the phantom-`children` footgun. The only thing you give up is `FC`'s implicit return-type
+> annotation, which inference already supplies.
 
 ### 2. The global `JSX` namespace moved to `React.JSX`
 
@@ -168,6 +185,11 @@ above plus the deprecated-type renames. Run it before touching anything by hand:
 npx types-react-codemod@latest preset-19 ./src
 ```
 
+> 🟢 **Best practice** — run the codemod before hand-editing. The four breaking changes are mostly
+> mechanical, and the `useRef` fix alone touches every ref site in the codebase; a jscodeshift pass is
+> both faster and more consistent than a human sweep. It only clears the mechanical bulk, so treat the
+> `tsc` errors that remain as the real work, not as codemod failures.
+
 Individually useful transforms inside that preset:
 
 | transform | fixes |
@@ -181,7 +203,7 @@ The codemod cannot fix implicit `children` (#1) or `props: unknown` (#4) in ever
 human to decide the actual type — but it clears the mechanical bulk so the remaining `tsc` errors are
 the ones worth reading.
 
-> **Sidebar — the `npx tsc` decoy footgun.** When verifying an upgrade, run the project-local binary:
+> 🔴 **Advanced / gotcha — the `npx tsc` decoy footgun.** When verifying an upgrade, run the project-local binary:
 > `./node_modules/.bin/tsc`, never bare `npx tsc`. In a directory without `node_modules`, `npx tsc` can
 > resolve to a **decoy package** that prints `This is not the tsc command you are looking for` — and in
 > at least one observed case emitted a plausible `Version 7.0.2` banner plus **four fabricated type
@@ -222,6 +244,13 @@ function TextInput({ ref, ...props }: ComponentPropsWithoutRef<'input'> & {
 `forwardRef` is **deprecated** in React 19 but **not removed** — it still compiles and still works. Do
 not tell people it errors. Migrate at your leisure; the codemod does not force it.
 
+> 🟢 **Best practice** — in new React 19 components, accept `ref` as a plain prop instead of reaching
+> for `forwardRef`. The reason it can be a plain prop at all is that a ref never participates in
+> rendering — reading or writing `ref.current` happens at [commit, not
+> render](fundamentals#render-vs-commit), so passing it like any other prop is sound. Since
+> `forwardRef` still works, this is a low-priority migration: convert on touch, not in a big-bang
+> sweep.
+
 ---
 
 ## Extending host element props
@@ -239,6 +268,11 @@ function Button({ variant = 'primary', ...rest }: ButtonProps) {
   return <button data-variant={variant} {...rest} />;
 }
 ```
+
+> 🟢 **Best practice** — extend `ComponentPropsWithoutRef<'tag'>` when wrapping a host element rather
+> than re-declaring `onClick`, `className`, `aria-*` by hand. Hand-listing attributes is where wrapper
+> components silently drop the one prop a consumer needs; deriving from the element keeps the surface
+> complete and correct for free.
 
 > Why `WithoutRef` and not plain `ComponentProps<'button'>`: the plain form drags in a `ref` field, and
 > its type was wrong for function components before React 19. `ComponentPropsWithoutRef` is still the
@@ -271,8 +305,11 @@ function SearchBox() {
 }
 ```
 
-Prefer `e.currentTarget` over `e.target`: `currentTarget` is typed as the element the handler is
-attached to, while `target` is the more general `EventTarget` and needs a cast to reach `.value`.
+> 🟢 **Best practice** — prefer `e.currentTarget` over `e.target`. `currentTarget` is typed as the
+> element the handler is attached to, while `target` is the more general `EventTarget` and needs a
+> cast to reach `.value`. Reaching for a cast to silence the error is the trap: the cast can lie at
+> runtime (`target` may be a descendant element), so the typed `currentTarget` is the safer read as
+> well as the cleaner one.
 
 ---
 
@@ -282,6 +319,12 @@ attached to, while `target` is the more general `EventTarget` and needs a cast t
 
 A single `status` discriminant lets the compiler narrow `data`/`error` for you — no `data!` non-null
 assertions, no "loading but data is also set" impossible states.
+
+> 🟢 **Best practice** — model async state as a discriminated union rather than parallel
+> `isLoading` / `data` / `error` booleans. Independent flags admit contradictory combinations
+> (`isLoading: true` _and_ `data` present) that the compiler cannot rule out; a `status` discriminant
+> makes those states unrepresentable and narrows `data`/`error` at each branch, deleting the `data!`
+> assertions that would otherwise paper over the gap.
 
 ```tsx
 type State<T> =
@@ -330,6 +373,11 @@ function makeCtx<T>(name: string) {
 }
 ```
 
+> 🟢 **Best practice** — hide the nullable default behind a hook that throws. Typing the context as
+> `createContext<T | null>(null)` is honest (there _is_ no value outside a provider), but forcing every
+> consumer to null-check is noise. The throwing hook narrows the return to `T` at one chokepoint and
+> converts a silent "used outside provider" bug into a loud, located error.
+
 ---
 
 ## Generic components are why `FC` has to go
@@ -350,6 +398,11 @@ function List<T>({ items, render }: {
 // Usage — T is inferred as User from items
 <List items={users} render={(u) => <span>{u.name}</span>} />;
 ```
+
+The `key={i}` above is fine only because this minimal `List` never reorders. If `items` can be
+reordered, inserted into, or filtered, derive the key from a stable id on the item — an index key
+makes [reconciliation](fundamentals#reconciliation) match the wrong element to the wrong DOM node and
+carries state (focus, input values) to the wrong row.
 
 This is the concrete payoff of the `children` change: since a plain function no longer loses implicit
 `children` versus `FC`, there is no remaining reason to use `FC`, and dropping it unlocks generics.
@@ -376,10 +429,19 @@ function Box<E extends React.ElementType = 'div'>({ as, ...rest }: BoxProps<E>) 
 <Box as="button" onClick={() => {}}>Go</Box>;
 ```
 
-> Polymorphic typing is genuinely hard and the `ref`-forwarding case gets hairier still. If a library
-> in your stack (MUI, Radix) already ships a polymorphic primitive, use it rather than re-deriving the
-> `as`-prop machinery — the edge cases around `ref` types and prop collisions are a well-known
-> time sink.
+> 🔴 **Advanced / gotcha** — the `as`-prop pattern is a sharp tool. The generic-over-`ElementType`
+> typing above compiles, but the full version (correct `ref` forwarding per element, prop-collision
+> handling, default-element inference) is one of the hardest things to type in React, and the error
+> messages it produces when a consumer gets it wrong are notoriously opaque.
+>
+> **Tradeoffs.** _Pros:_ one component covers `a`/`button`/`div` with element-correct prop checking —
+> `href` allowed under `as="a"`, rejected under `as="button"`. _Cons:_ every maintainer now has to
+> understand the generic machinery to change the component, and the inferred types slow the editor on
+> large prop unions. **When NOT to use it:** if you have two or three concrete variants, ship two or
+> three plain components instead — the polymorphism is not worth the typing cost. And if a library in
+> your stack (MUI, Radix) already ships a polymorphic primitive, use it rather than re-deriving the
+> `as`-prop machinery; the edge cases around `ref` types and prop collisions are a well-known time
+> sink.
 
 ---
 
@@ -406,6 +468,13 @@ setups report TS5109). A legacy CRA/webpack React app carrying `"moduleResolutio
 `"target": "es5"` **cannot run `tsc` at all** under TS 7 until the tsconfig moves to
 `"bundler"`/`"node16"`/`"nodenext"` and a modern target. This is a hard compile failure, not a warning,
 and it fires before any React error does.
+
+> 🔴 **Advanced / gotcha** — on TS 7 the config surface breaks _before_ any of the four
+> `@types/react@19` errors can appear. A legacy React app inherits `moduleResolution: "node"` and
+> `target: "es5"`, and `tsc` refuses to check a single file until they are removed (TS5108). Sequence
+> the migration accordingly: fix the tsconfig, get `tsc` running, _then_ let the React type errors
+> surface. Chasing the codemod first on TS 7 just means staring at a compiler that never got far
+> enough to look at your components.
 
 > **`@types/react` version resolution under TS 7.** `@types/react` publishes dist-tags `ts5.0`…`ts6.0`
 > but **no `ts7.0` tag** — TS 7 consumers resolve `latest` (19.2.17). The `typesVersions` redirect in

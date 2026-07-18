@@ -10,7 +10,9 @@ React 19 is the current stable line (**19.2.7**, published 2026-06-01; 19.2.0 sh
 
 **Rule: an async function passed to `startTransition` (or to a `<form action>`) is an "Action". Let React own the pending / error / ordering state instead of hand-rolling it.**
 
-Why it exists: the hand-rolled version is four pieces of `useState` and almost everyone gets at least one wrong — usually the error path or the stale-response race. The failure it prevents is a slow first request landing *after* a fast second one and clobbering the newer result.
+> 🟢 **Best practice** — reach for `useActionState` before hand-rolling four `useState`s. This is a correctness rule, not an optimization: the ordering/error state it manages is exactly what people get wrong.
+
+Why it exists: the hand-rolled version is four pieces of `useState` and almost everyone gets at least one wrong — usually the error path or the stale-response race. The failure it prevents is a slow first request landing *after* a fast second one and clobbering the newer result — a [stale-closure](fundamentals#closures)-adjacent bug where the older async continuation writes last.
 
 **Bad** — realistic, and subtly broken:
 
@@ -98,6 +100,8 @@ const { pending, data, method, action } = useFormStatus();
 
 **Rule: `useFormStatus` reads the *parent* form only. It cannot see a form rendered by the same component.**
 
+> 🟢 **Best practice** — put the hook in a child component (`<SubmitButton>`) inside the `<form>`, never in the component that renders the `<form>`. This is a correctness rule; getting it wrong fails silently.
+
 This is the #1 `useFormStatus` bug and it fails *silently* — `pending` is just permanently `false`.
 
 **Bad:**
@@ -137,6 +141,8 @@ function Form({ submit }: { submit: (fd: FormData) => Promise<void> }) {
 
 Mental model: the `<form>` behaves like a Context provider and the hook is a consumer — a provider can't consume itself. The payoff is a design-system `<SubmitButton>` that works with zero prop drilling, at the cost of one extra component boundary.
 
+**Tradeoffs.** *Pros:* the submit button reads pending state with no prop drilling and works in any form. *Cons:* forces an extra component split you might not otherwise want. **When NOT to use it:** for a one-off form where the pending state is already local, `useActionState`'s own `isPending` is simpler — reach for `useFormStatus` only when the status consumer is decoupled from the form owner (a shared design-system button).
+
 ---
 
 ## `useOptimistic`
@@ -145,7 +151,9 @@ Mental model: the `<form>` behaves like a Context provider and the hook is a con
 const [optimisticState, setOptimistic] = useOptimistic(value, reducer?);
 ```
 
-The optional second arg is a **pure** reducer `(currentState, action) => nextOptimisticState`.
+The optional second arg is a **pure** reducer `(currentState, action) => nextOptimisticState` — it must be [pure](fundamentals#purity), because React re-runs it against a changing base value.
+
+> 🟡 **Optimization** — `useOptimistic` is a *perceived-latency* win, not a correctness feature. It trades extra code and a reconciliation-on-revalidate contract for a UI that responds before the server does. Skip it when the write is fast enough that a plain pending spinner reads fine.
 
 **Rule: `setOptimistic` must be called inside a transition/Action, and the optimistic value survives exactly as long as the transition does.**
 
@@ -214,6 +222,8 @@ function MessageList({ messages, send }: Props) {
 - **Rollback on error is automatic.** No `catch` + undo needed. Catch only to *surface* the error.
 - Calling it outside a transition warns in dev; calling it during render is a hard error.
 
+**Tradeoffs.** *Pros:* instant feedback, automatic rollback on error, correct under concurrent in-flight updates (the reducer re-runs against fresh base state). *Cons:* it is **not a store** — it depends on the parent revalidating `value`, so it couples your component to a real data-refresh path; get that wrong and the UI snaps back and looks like a failed write. **When NOT to use it:** for writes with no meaningful latency, or where you have no revalidation story yet — a plain optimistic `useState` is honest about being ad-hoc, whereas `useOptimistic` promises a convergence that never happens.
+
 ---
 
 ## `use()`
@@ -224,6 +234,8 @@ const value = use(context);
 ```
 
 **Rule: `use()` is not a hook and deliberately breaks the Rules of Hooks — it may be called in conditionals and loops. But it must still be called from a component or hook, and the promise must not be created during render.**
+
+> 🟢 **Best practice** — always pass `use()` a *cached / stable* promise created outside the [render](fundamentals#render-vs-commit) pass. An uncached promise created inline suspends → re-renders → creates a new promise → suspends forever. This is a correctness rule; the failure mode is a permanent fallback (or a melted server), not a slowdown.
 
 Why it can bend the rules: hook order matters because hook state is positional. `use()` reading a promise or context has no positional slot to preserve.
 
@@ -365,7 +377,7 @@ function BlogPost({ post }: { post: Post }) {
 }
 ```
 
-> **React hoists, it does not deduplicate or arbitrate.** Two components rendering `<title>` yield two `<title>` tags in `<head>`. There is no "last one wins" merge and no `<meta>` key-collision handling. This is **not** a react-helmet replacement for apps with nested layouts each declaring metadata — that needs framework-level merging (Next's Metadata API, etc.). Teams that adopt this on the strength of the release-note headline hit duplicate/conflicting tags in prod and blame SEO.
+> 🔴 **Gotcha — React hoists, it does not deduplicate or arbitrate.** Two components rendering `<title>` yield two `<title>` tags in `<head>`. There is no "last one wins" merge and no `<meta>` key-collision handling. This is **not** a react-helmet replacement for apps with nested layouts each declaring metadata — that needs framework-level merging (Next's Metadata API, etc.). Teams that adopt this on the strength of the release-note headline hit duplicate/conflicting tags in prod and blame SEO.
 
 ### Stylesheets
 
@@ -376,7 +388,9 @@ function BlogPost({ post }: { post: Post }) {
 
 - `precedence` controls insertion order in `<head>` (order your `precedence` values are first encountered, not alphabetical).
 - **Deduplicated** across components (unlike metadata).
-- React **blocks commit/paint until the stylesheet loads** — CSR waits before committing, SSR won't paint. This makes co-located CSS safe, but a slow/blocked CDN stylesheet now blocks *rendering*, converting a FOUC into a blank screen. Watch this on third-party CSS.
+- React **blocks [commit/paint](fundamentals#render-vs-commit) until the stylesheet loads** — CSR waits before committing, SSR won't paint. This makes co-located CSS safe, but a slow/blocked CDN stylesheet now blocks *rendering*, converting a FOUC into a blank screen. Watch this on third-party CSS.
+
+> 🔴 **Gotcha** — co-locating a `<link rel="stylesheet">` is convenient, but you have just put a network request on the critical path *between render and commit*. A third-party CSS host having a bad day turns into a blank screen, not a flash of unstyled content. Reach for co-located stylesheets knowingly; keep slow/untrusted CSS out of the commit path.
 
 ### Async scripts
 
@@ -472,15 +486,21 @@ Mechanism of the RCE: `requireModule` did not validate that the requested export
 npm install --save-dev --save-exact babel-plugin-react-compiler@latest
 ```
 
+> 🟡 **Optimization** — the compiler auto-memoizes so you (mostly) don't hand-write `useMemo`/`useCallback`. Like all memoization it has a cost: build-time transform, a per-component `_c` cache at runtime, and the possibility of a silent bailout leaving you *believing* you're optimized. Adopt it deliberately, measure, and pin the version.
+>
+> **What "auto-memoize" buys, measured:** the same un-memoized child that renders **11 times** across 10 parent updates renders **1 time** once compiled (`babel-plugin-react-compiler@1`, `target: '19'`) — the compiler guards the child behind a `_c(n)` cache. That's the *same* 11→1 ratio you'd get from a hand-placed `React.memo`, without the wrapper. *Measured on a small reproduction (React 19, jsdom); your numbers will differ in production, and the ratio, not the absolute count, is the point.*
+>
+> **Tradeoffs.** *Pros:* removes most manual-memoization busywork; can [memoize after an early return](#react-compiler-10), which `useMemo` structurally cannot. *Cons:* bailouts are silent (below), it magnifies existing Rules-of-React violations, and behavior can shift between compiler versions. **When NOT to use it:** on a codebase with known purity/Rules-of-React violations and thin e2e coverage — fix those first. It is not a free win; see the pin-exactly note below.
+
 - **Stable since 1.0.0, published 2025-10-07.** Versioning is deliberately decoupled from React's — it's `1.0.0`, not `19.x`. It is roughly nine months old; treat it as **mature**, not brand-new. (Do not reflexively pin `@rc` — the `rc` dist-tag points at an *older* `19.1.0-rc.3`, so `@rc` is a downgrade to a prerelease.)
 - **Supports React 17+.** For **17 / 18** you must also install `react-compiler-runtime` and set the compiler `target`. React 19 needs neither.
 - Meta-scale results: Quest Store reported initial load + cross-page nav up to **12%** better, some interactions **>2.5×** faster, memory neutral.
 
-> **Pin it exactly.** The docs state that memoization behavior *may change between compiler versions*, and code that breaks the Rules of React can then behave unexpectedly — specifically, **`useEffect` can over- or under-fire** when a memoized value is a dependency. If your e2e coverage is thin, pin `"babel-plugin-react-compiler": "1.0.0"`, not `^1.0.0` — hence `--save-exact` in the official install command. The compiler is not a free win on a codebase with Rules-of-React violations; it *magnifies* them.
+> 🔴 **Pin it exactly.** The docs state that memoization behavior *may change between compiler versions*, and code that breaks the Rules of React can then behave unexpectedly — specifically, **`useEffect` can over- or under-fire** when a memoized value is a dependency. If your e2e coverage is thin, pin `"babel-plugin-react-compiler": "1.0.0"`, not `^1.0.0` — hence `--save-exact` in the official install command. The compiler is not a free win on a codebase with Rules-of-React violations; it *magnifies* them.
 
-> **Do NOT mass-delete `useMemo`/`useCallback` when the compiler is on.** This is the dominant advice online and it is harmful. Removing existing memoization *can change* the compiler's output, and the plugin ships `react-hooks/preserve-manual-memoization` as an **error-level** rule in `recommended` — the compiler consumes your manual memo as a semantic signal.
+> 🔴 **Do NOT mass-delete `useMemo`/`useCallback` when the compiler is on.** This is the dominant advice online and it is harmful. Removing existing memoization *can change* the compiler's output, and the plugin ships `react-hooks/preserve-manual-memoization` as an **error-level** rule in `recommended` — the compiler consumes your manual memo as a semantic signal.
 
-> **Bailouts are silent.** Compilation is per-function; a bailout produces no warning and no build failure, so you can ship believing you're memoized when you aren't. The bail set is strictly *larger* than "violates Rules of React" (it includes unimplemented-syntax bailouts), so you can't reason your way to compiled-ness from purity alone. Only the compiler's `logger.logEvent` gating hook reveals bailouts.
+> 🔴 **Bailouts are silent.** Compilation is per-function; a bailout produces no warning and no build failure, so you can ship believing you're memoized when you aren't. The bail set is strictly *larger* than "violates Rules of React" (it includes unimplemented-syntax bailouts), so you can't reason your way to compiled-ness from purity alone. Only the compiler's `logger.logEvent` gating hook reveals bailouts.
 
 The one thing the compiler does that `useMemo` structurally cannot: **memoize after an early return** (the Rules of Hooks forbid a hook there). That's verifiable in the compiled output.
 
@@ -502,7 +522,7 @@ v7.0.0 removed `recommended-latest-legacy` and `flat/recommended`. Two configs r
 - `recommended` — all recommended rules (both legacy and flat exports).
 - `recommended-latest` — recommended plus bleeding-edge experimental compiler rules.
 
-> The plugin grew from 2 rules to ~29 and now mechanically enforces "You Might Not Need an Effect" via **`no-deriving-state-in-effects`** — but that rule is **off by default** (it's not in `recommended`, and `recommended` ≠ `recommended-latest`). One of the most valuable React lint rules is one almost nobody has enabled. Turn it on deliberately.
+> 🟢 **Best practice — turn on `no-deriving-state-in-effects`.** The plugin grew from 2 rules to ~29 and now mechanically enforces "You Might Not Need an Effect" via this rule — but it is **off by default** (not in `recommended`, and `recommended` ≠ `recommended-latest`). Deriving state in an Effect that could be computed during render is the single most common source of extra render passes and [dependency-array](fundamentals#dependency-arrays) churn; this lint rule catches it mechanically. One of the most valuable React lint rules is one almost nobody has enabled.
 
 Legacy eslintrc users: `extends: ['plugin:react-hooks/recommended-legacy']`. When citing the 6.x line, cite **6.1.0** — 6.0.0 was an accidental publish, deprecated immediately.
 
@@ -552,7 +572,7 @@ npx types-react-codemod@latest react-element-default-any-props ./src
 - **19.1.0** (2025-03-28): **Owner Stacks** — `captureOwnerStack()`, dev-only. Shows which component *rendered* a component (vs. component stacks, which show the tree above an error). The underused debugging upgrade of the 19.x line.
 - **19.2.0** (2025-10-01):
   - **`<Activity mode="visible" | "hidden">`** — replaces `{visible && <Page/>}`. `hidden` unmounts effects and defers updates until idle **but preserves state**. Pre-render next routes; keep state across back-nav.
-  - **`useEffectEvent`** — the fix for "my Effect re-runs because a callback dep changed." Declare it in the same component/hook as its Effect; **never** put it in a dep array. Requires `eslint-plugin-react-hooks@latest`.
+  - **`useEffectEvent`** — the fix for "my Effect re-runs because a callback dep changed." It lets an Effect read the latest props/state without listing them in [the dependency array](fundamentals#dependency-arrays). Declare it in the same component/hook as its Effect; **never** put it in a dep array. Requires `eslint-plugin-react-hooks@latest`.
   - **`cacheSignal()`** (RSC only) — an abort signal tied to `cache()` lifetime.
   - **Performance Tracks** in Chrome DevTools (Scheduler + Components tracks).
   - **SSR Suspense reveals now batch** to align server with client behavior. This **changes existing SSR reveal timing** — a behavior change inside a minor. A heuristic backstop stops batching if LCP approaches 2.5s.

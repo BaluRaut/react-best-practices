@@ -76,6 +76,12 @@ const root = createRoot(container);
 root.render(<App />);
 ```
 
+> 🟢 **Best practice** — switch to `createRoot` as the *first* step of the 18 migration, not a later
+> cleanup. It's a correctness rule, not an optimization: while you're on `ReactDOM.render`, React
+> deliberately runs [React 17 semantics](fundamentals#render-vs-commit) — automatic batching,
+> concurrent features, and the new StrictMode all stay dormant. Deferring the switch doesn't defer
+> the risk, it *concentrates* it into one innocent-looking line landed later.
+
 ### Gotchas
 
 - **The `render` callback is gone.** `render(<App/>, container, callback)` — the third arg is not
@@ -138,6 +144,11 @@ function Layout() {
   return isMobile ? <MobileNav /> : <DesktopNav />;
 }
 ```
+
+> 🟢 **Best practice** — for SSR, the first client render must produce byte-identical output to the
+> server. That's a [purity](fundamentals#purity) constraint on your initial render: no `window`, no
+> `Date.now()`, no `Math.random()` in the render path. The two-pass shape above satisfies it — render
+> the server-safe value, then correct it in an effect after [commit](fundamentals#render-vs-commit).
 
 `createRoot`/`hydrateRoot` accept `onRecoverableError` — wire it to your error reporter, because
 these errors are *recovered from* and therefore invisible unless you look for them.
@@ -204,11 +215,15 @@ function handleAsyncThing() {
 }
 ```
 
-> `flushSync` is a **performance footgun, not a bug fix.** It de-opts that update out of batching and
-> concurrency entirely and forces a synchronous re-render of the affected tree. Reaching for it to
-> "make React 18 behave like 17" across a codebase is how teams end up with a *slower* app after
-> upgrading. Use it only where you must read layout between two state changes — measuring, focus
-> management, imperative scroll into a just-rendered node.
+> 🔴 **Advanced / gotcha** — `flushSync` is a **performance footgun, not a bug fix.** It de-opts that
+> update out of batching and concurrency entirely and forces a synchronous re-render of the affected
+> tree. Reaching for it to "make React 18 behave like 17" across a codebase is how teams end up with a
+> *slower* app after upgrading. Use it only where you must read layout between two state changes —
+> measuring, focus management, imperative scroll into a just-rendered node.
+>
+> **When NOT to use it:** if the DOM read can be expressed as an effect keyed on the state (the
+> preferred version above), do that instead — an effect runs after commit without opting out of
+> batching or concurrency for every other update in the tree.
 
 ### `unstable_batchedUpdates`: not removed, just pointless
 
@@ -224,6 +239,11 @@ exact 19.x status.
 
 React kept it *because* popular libraries depended on its existence, not because it does anything —
 a compatibility shim for a problem React already solved.
+
+> 🟢 **Best practice** — delete `unstable_batchedUpdates` and react-redux `batch()` calls from *app*
+> code once you're on `createRoot`. Automatic batching already collapses those updates; keeping the
+> wrapper is dead weight that reads as if it's doing something. (Leave it alone inside libraries you
+> don't own — they call it defensively for consumers still on 17.)
 
 ---
 
@@ -290,6 +310,17 @@ useEffect(() => {
 
 In dev this connects → disconnects → connects. Net: exactly one live connection, the same invariant
 as production. That's the point — the invariant, not the call count.
+
+> 🟢 **Best practice** — every effect that acquires something (a subscription, connection, timer,
+> observer) returns a cleanup that releases it. This is a [correctness rule tied to the dependency
+> array](fundamentals#dependency-arrays), not a StrictMode workaround: the cleanup runs on unmount
+> *and* between re-runs when a dep changes, so a missing cleanup leaks in production regardless of
+> StrictMode. StrictMode's double-invoke just surfaces the leak in dev where you can see it.
+
+> 🔴 **Advanced / gotcha** — the `didInit` ref above is the trap, not the fix. It makes the dev
+> symptom disappear while *preserving* the production leak and defeating re-subscription on dep change.
+> If you find yourself reaching for a "run once" guard, the real question (per react.dev) is "how do I
+> make this effect safe to re-run", which cleanup answers.
 
 ### The taxonomy that actually resolves the migration (from react.dev)
 
@@ -377,6 +408,17 @@ useEffect(() => {
 > With the `AbortController` cleanup your error handler **must** ignore `AbortError`, or the "fix"
 > produces spurious error toasts in dev.
 
+> 🟡 **Optimization** — while you're in a fetching effect, fire *independent* requests together with
+> `Promise.all` instead of awaiting each in turn. Three independent requests took **604 ms** awaited
+> sequentially vs **221 ms** with `Promise.all` (measured on a small reproduction — simulated
+> 200/180/220 ms latencies; production will differ). Parallel time ≈ the single slowest request;
+> sequential ≈ their sum.
+>
+> **When NOT to use it:** only when the requests are genuinely independent. If request B needs A's
+> result, they *must* stay sequential — `Promise.all` there just races a request against data it
+> doesn't have yet. The win is also latency-bound, not CPU-bound: it does nothing for requests that
+> were already parallel or for a single request.
+
 ### StrictMode also double-*renders* (a different thing, often conflated)
 
 Double render (of the component function body) catches impurity; double effects catch missing
@@ -399,6 +441,12 @@ function StoryTray({ stories }) {
   return <ul>{items.map(s => <li key={s.id}>{s.label}</li>)}</ul>;
 }
 ```
+
+> 🟢 **Best practice** — render must be [pure](fundamentals#purity): given the same props and state it
+> returns the same JSX and mutates nothing it didn't create this render. `stories.push(...)` mutates a
+> prop, so StrictMode's double-render makes the duplicate visible. Copy-then-mutate (`.slice()`) keeps
+> the function pure. This is a correctness rule — the double-render only *reveals* the impurity that
+> was already a latent bug under [reconciliation](fundamentals#reconciliation).
 
 - **React 18 stopped suppressing console logs** on the second render (they're greyed out in DevTools
   instead). Two `console.log`s per render in dev is expected, not a bug.
@@ -514,9 +562,28 @@ function getSnapshot() {
 }
 ```
 
+> 🟢 **Best practice** — the "`getSnapshot` must be cached" rule is pure correctness, not tuning:
+> React compares snapshots with `Object.is`, and a fresh object every call is never equal, so it's an
+> infinite render loop, not merely a slow one. The reason traces back to [render vs
+> commit](fundamentals#render-vs-commit) — React reads the snapshot during render and re-runs when it
+> changes; if it "changes" every read, render never settles.
+
 For real selector support use `useSyncExternalStoreWithSelector` from
 `use-sync-external-store/with-selector` (`use-sync-external-store@1.6.0` current), which takes an
 `isEqual` argument. This is what react-redux and SWR migrated to.
+
+> 🔴 **Advanced / gotcha** — a *selector* store (`useSyncExternalStoreWithSelector`, react-redux's
+> `useSelector`) is the tool to reach for when many components read *different slices* of one store,
+> because plain Context can't do it. A single un-split context re-renders **every** consumer on any
+> value change: a context holding `{ a, b }` updated only on `a` (five times) still re-rendered a
+> consumer that reads only `b` **6 times, all wasted** (measured on a small reproduction; production
+> will differ). A selector store lets each consumer subscribe to just its slice via `isEqual`.
+>
+> **Pros:** consumers re-render only when their selected slice changes; scales to high-frequency state.
+> **Cons:** you own an external store and its subscription lifecycle, and every selector must return a
+> stable reference or you get the same infinite-loop / over-render failure as `getSnapshot`.
+> **When NOT to use it:** low-frequency or naturally-grouped state — split it into separate contexts
+> instead (cheaper, no external store). Selector stores earn their keep for hot, widely-read state.
 
 A full realistic store + hook:
 
@@ -627,6 +694,14 @@ function Search() {
 const SlowResults = memo(function SlowResults({ query }) { /* ... */ });
 ```
 
+> 🟡 **Optimization** — `useTransition` buys *input responsiveness*, not throughput, and only when a
+> measured render is janking the main thread. **Pros:** urgent updates (the input) stay instant while
+> the expensive tree renders at lower priority and is interruptible. **Cons:** total work is the same
+> or greater — an interrupted transition is thrown away and restarted from scratch, so an
+> un-`memo`ized `SlowResults` re-renders fully on every keystroke and you've added overhead, not
+> removed it. **When NOT to use it:** if the consuming tree is cheap, or if you can't/​won't `memo` it,
+> or if the real cost is network rather than rendering (debounce the request instead).
+
 #### Caveats (all from react.dev's useTransition caveat list)
 
 - **You cannot put a controlled text input's own state in a transition.** The #1 mistake.
@@ -669,6 +744,13 @@ const deferredValue = useDeferredValue(value, initialValue?);
 Use it when you don't own the setter (props, custom hooks). It's `useTransition`'s counterpart, not
 a competitor.
 
+> 🟡 **Optimization** — reach for `useDeferredValue` only when a real, measured render is lagging and
+> you *can't* wrap the setter in a transition (the value arrives as a prop or from a hook you don't
+> control). **Pros:** no extra state, adapts to device speed rather than a guessed delay. **Cons:** it
+> only pays off with a `memo`ized consumer (above), and it renders the tree *twice* per change (once
+> stale, once fresh), so on a cheap tree it's pure overhead. **When NOT to use it:** to throttle
+> network calls — that's debounce's job (see below), and swapping one for the other DDoSes your own API.
+
 ```js
 // GOOD — canonical shape. memo is REQUIRED for any benefit.
 const SlowList = memo(function SlowList({ text }) { /* expensive */ });
@@ -690,6 +772,10 @@ function App() {
 - **Without `memo`/`useMemo` on the consumer, `useDeferredValue` does nothing.** The parent
   re-renders on every keystroke; the child re-renders with it regardless of whether its prop is
   deferred. This is the most common "useDeferredValue didn't help" report, and it's not a React bug.
+  `memo` is what lets the child *bail out* of a parent render when its props are unchanged — in a
+  small reproduction, a child under 10 parent updates rendered **11 times** plain vs **1 time** wrapped
+  in `memo` (measured on React 19 / jsdom; production will differ). Deferring a value only helps if the
+  child can skip the renders where the value hasn't caught up yet, and `memo` is the skip mechanism.
 - **Pass primitives or objects created outside render.** `useDeferredValue({ query })` creates a new
   object every render → an unnecessary background re-render every time → strictly worse than not
   using it.
@@ -740,6 +826,11 @@ function Field({ label, hint }) {
   );
 }
 ```
+
+> 🟢 **Best practice** — use `useId` for any SSR-rendered `id` that wires up accessibility
+> (`htmlFor`, `aria-describedby`). It's a correctness rule: a render-order counter produces different
+> IDs on server vs client (streaming and Suspense resolve out of order), which is a hydration mismatch,
+> not a style preference. `useId` derives from tree position, so both passes agree.
 
 ### The gotcha that bites in production: the ID is not a valid CSS selector in React 18
 
@@ -832,6 +923,14 @@ function Albums({ albumsPromise }) {
 </Suspense>
 ```
 
+> 🔴 **Advanced / gotcha** — do not hand-roll a throw-a-promise cache to "use Suspense for data" on
+> React 18. `<Suspense>` only activates for Suspense-enabled sources; wrapping an effect-fetching
+> component in it renders decoration, and homegrown caches hit the "state destroyed if it suspends
+> before first mount" trap (next section) in ways that are miserable to debug. **When NOT to reach for
+> Suspense at all on 18:** ordinary in-app data fetching — use TanStack Query / SWR, which own the
+> promise cache correctly. `use()` (React 19) is the first supported general-purpose way to suspend on
+> a promise in app code, and it does not exist in 18.
+
 **So: on React 18 without a framework, use TanStack Query / SWR / RSC-less loaders.** The 2022–2024
 pattern of hand-rolling a promise-throwing cache to "use Suspense for data" was always explicitly
 unsupported — the release notes recommend Suspense "works best when deeply integrated" with
@@ -904,6 +1003,12 @@ function Child({ onReady }) {
 // GOOD (b) — better: don't sync state at all. Lift/derive it.
 // If the parent can compute `ready` itself, the whole handshake disappears.
 ```
+
+> 🟢 **Best practice** — never call another component's `setState` during your render; move it to an
+> effect or, better, derive/lift the value so no cross-component handshake exists. This is the
+> [purity](fundamentals#purity) rule again: under concurrency renders are interruptible and
+> restartable, so a render-phase update against another component can run an unpredictable number of
+> times or force React to commit an inconsistent tree.
 
 Note the legal-looking exception: `setState` on **your own** component during render is a supported
 pattern (the "adjust state when props change" derived-state escape hatch) — React re-runs your

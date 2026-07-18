@@ -53,6 +53,11 @@ escape hatch you pull in only for the React Compiler or custom Babel plugins.
 The reason `-swc` and `-oxc` existed — escaping Babel's slowness — evaporated in v6. Default to
 `@vitejs/plugin-react`.
 
+> 🟢 **Best practice** — reach for `@vitejs/plugin-react@6` unless you have a concrete reason not to.
+> It is first-party, Oxc-based, and supports the React Compiler via preset. Picking `-swc` or `-oxc`
+> today is choosing a narrower, still-0.x package to solve a problem (Babel's cost) that no longer
+> exists in the default.
+
 > The research inferred `@vitejs/plugin-react-oxc` is *redundant*, not *deprecated* — its README says
 > nothing. Treat it as "no longer needed for this stack," not "removed."
 
@@ -194,6 +199,12 @@ export default defineConfig({
 `vite-tsconfig-paths` is a single-source alternative, but it's a third-party dep to patch a
 first-party gap — the six-line `resolve.alias` is more honest.
 
+> 🟢 **Best practice** — declare the alias in **both** `resolve.alias` and tsconfig `paths`, and
+> delete `baseUrl`. This is a correctness rule, not a tuning knob: `resolve.alias` missing means a
+> green build with a red Vitest suite; `paths` missing means the editor and `tsc` can't follow the
+> alias; a lingering `baseUrl` is a hard `TS5102` on TS 7. Each of the two entries covers a layer the
+> other cannot.
+
 ---
 
 ## Env vars: `VITE_` is a "this is public" declaration, not a secret
@@ -233,6 +244,11 @@ The correct migration move is an explicit allowlist:
 ```ts
 export default defineConfig({ envPrefix: ['VITE_', 'REACT_APP_'] })
 ```
+
+> 🔴 **Advanced / gotcha** — `envPrefix: ''` is a trap that looks like a convenience. It disables the
+> one boundary standing between your `.env` and a world-readable static asset, and it fails silently:
+> the build is green, the site works, and the secret is in `dist/` for anyone who runs `grep`. Treat
+> the empty prefix as never-correct; widen the allowlist to the exact legacy prefixes instead.
 
 > On GitHub Pages there is **no server**, so there is no such thing as a private env var in this
 > project. Anything prefixed `VITE_` is baked as plaintext into a static asset served to every
@@ -289,9 +305,18 @@ build: {
 Both split a ~190 kB `react-*.js` chunk out of the index chunk; they produced identical hashes in the
 probe. `advancedChunks` is the supported-going-forward API and adds `minSize`/`maxSize`/priority.
 
-> Do not hand-split vendor chunks by default. Rolldown's automatic chunking is usually better, and a
-> manual `react` chunk mostly helps when React is genuinely stable across deploys. Reach for this only
-> after measuring.
+> 🟡 **Optimization** — a manual `react` (or vendor) chunk is a tuning knob, not a default. Rolldown's
+> automatic chunking is usually better, and a hand-split chunk mostly helps when the split-out code is
+> genuinely stable across deploys, so returning visitors keep it cached while your app chunk changes.
+>
+> **Pros** — a stable vendor chunk survives cache across app-only deploys; predictable chunk names.
+> **Cons** — you now own the split; get it wrong and you *duplicate* code across chunks or defeat
+> Rolldown's automatic dedup, making the total bundle bigger. It also drifts silently as deps change.
+>
+> **When NOT to use it:** before you have measured a caching or first-load problem. Splitting a vendor
+> chunk does not shrink first-load bytes — it only shifts *which* chunk they land in. The lever that
+> actually shrank first load on this very site was route-level lazy loading (below), not vendor
+> splitting.
 
 ### Lazy routes
 
@@ -301,6 +326,28 @@ Standard dynamic `import()` is the real win and works unchanged:
 const Docs = lazy(() => import('./routes/Docs'))
 // <Suspense fallback={<Spinner/>}><Docs/></Suspense>
 ```
+
+> 🟢 **Best practice** — route-level code splitting is the default for any multi-route SPA, because it
+> keeps first-load JS proportional to the *first* screen instead of the whole app. Splitting this
+> reference site's own build — a lazy markdown renderer (react-markdown + highlight.js, ~101 KB gzip)
+> plus per-doc chunks — took first-load JS from **258 KB gzip in one eager chunk to a 92 KB entry**,
+> measured on this repo's build (your numbers will differ in production; the ~3× direction is the
+> point).
+>
+> **Pros** — first paint downloads only what the landing route needs; each doc/route streams in on
+> demand. **Cons** — the first navigation to a lazy route shows a brief Suspense fallback while its
+> chunk loads. **When NOT to use it:** a genuinely tiny app, or a route the user almost always visits
+> immediately — there, an extra network round-trip buys nothing. **Mitigation:** prefetch the chunk on
+> link hover for hot routes, turning the fallback flash into a no-op.
+
+> 🟡 **Optimization** — before hand-splitting chunks to shrink a bundle, check for **barrel files**
+> (`index.ts` re-exports). With pure, tree-shakeable modules a barrel is free — importing one symbol
+> out of 20 measured **143 bytes either way**. But if those modules have side effects (a registration,
+> a `import './x.css'`, a top-level `console`) and `sideEffects: false` is not set, tree-shaking can't
+> drop the unused 19: the same one-symbol import pulled in **22 modules / 1571 bytes** via the barrel
+> vs **2 modules / 143 bytes** direct (measured on a small reproduction). The larger, always-present
+> cost is the dev server and HMR crawling the whole barrel graph on first import. **When NOT to worry:**
+> pure modules with `sideEffects` declared — the blanket "barrels are slow" claim is only sometimes true.
 
 > **Pages gotcha:** lazy chunks are fetched relative to `base`. If `base` is wrong, lazy routes 404
 > *only after* the initial page loads fine — the "app works, clicking a link explodes" report.
@@ -345,6 +392,11 @@ Wire the router to it, or client-side routing fights the base:
 `import.meta.env.BASE_URL` is populated from `base` automatically. Use it rather than re-typing the
 literal, so dev (`/`) and prod (`/react-best-practices/`) both work.
 
+> 🟢 **Best practice** — set `base` correctly and wire the router to `import.meta.env.BASE_URL`. This
+> is a correctness rule with a nasty failure mode: a wrong `base` produces a blank page with an empty
+> console (only the network tab shows the 404s), and a hardcoded router basename means dev and prod
+> can't both be right. Deriving the basename from `BASE_URL` keeps a single source of truth.
+
 ### The SPA-404 problem
 
 GitHub Pages is a **static file server with no rewrite rules.** `BrowserRouter` shows
@@ -366,6 +418,14 @@ tradeoff — Google generally indexes these fine in practice, but it is genuinel
 a tradeoff you're accepting, not a solved problem. If you ever need guaranteed-correct status codes,
 that's the signal to move to a host with real rewrites (Cloudflare Pages/Netlify) — **not** to switch
 to HashRouter. Choose HashRouter only if you cannot control the build output.
+
+> 🟢 **Best practice** — the `404.html` copy (one `cp` in CI). Clean, shareable URLs; the only cost is
+> the 404 *status code*, which you accept knowingly.
+
+> 🔴 **Advanced / gotcha** — `HashRouter` is the escape hatch of last resort, not a peer option. It
+> makes every URL resolve to `index.html` with a correct 200, and it cannot break — but it costs you
+> `#/`-prefixed URLs, worse SEO, and broken in-page anchor links. Reach for it only when you truly
+> cannot control the build output (no CI step, no ability to emit `404.html`).
 
 Do it in the build, not by hand:
 

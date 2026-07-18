@@ -1,8 +1,9 @@
 import { memo } from 'react'
+import { isValidElement, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import Alert from '@mui/material/Alert'
+import Alert, { type AlertColor } from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
 import Link from '@mui/material/Link'
@@ -17,8 +18,30 @@ import Typography from '@mui/material/Typography'
 
 import 'highlight.js/styles/github-dark.css'
 
+/**
+ * First non-whitespace run of text inside a node tree — used to read a callout's
+ * leading label emoji. Whitespace-only nodes are skipped: react-markdown inserts "\n"
+ * text nodes between a blockquote and its inner <p>, and returning one of those would
+ * mask the emoji and send every callout to the default color.
+ */
+function firstText(node: ReactNode): string {
+  if (typeof node === 'string') return node.trim() ? node : ''
+  if (typeof node === 'number') return String(node)
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const t = firstText(child)
+      if (t) return t
+    }
+    return ''
+  }
+  if (isValidElement(node)) {
+    return firstText((node.props as { children?: ReactNode }).children)
+  }
+  return ''
+}
+
 /** GitHub-style heading anchor, so every section is linkable. */
-function slugify(children: React.ReactNode): string {
+function slugify(children: ReactNode): string {
   return String(children)
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
@@ -74,11 +97,24 @@ const components: Components = {
       {children}
     </Box>
   ),
-  blockquote: ({ children }) => (
-    <Alert severity="info" variant="outlined" sx={{ my: 2, '& p': { my: 0.5 } }}>
-      {children}
-    </Alert>
-  ),
+  blockquote: ({ children }) => {
+    // Callout color follows the leading label emoji, so the pattern taxonomy
+    // (🟢 best practice / 🟡 optimization / 🔴 advanced-or-gotcha) reads as color, not
+    // just text — and the same markdown still reads correctly inside a Claude skill.
+    const lead = firstText(children).trimStart()
+    const severity: AlertColor = lead.startsWith('🟢')
+      ? 'success'
+      : lead.startsWith('🟡')
+        ? 'warning'
+        : lead.startsWith('🔴')
+          ? 'error'
+          : 'info'
+    return (
+      <Alert severity={severity} variant="outlined" sx={{ my: 2, '& p': { my: 0.5 } }}>
+        {children}
+      </Alert>
+    )
+  },
   hr: () => <Divider sx={{ my: 4 }} />,
   table: ({ children }) => (
     <TableContainer component={Paper} variant="outlined" sx={{ my: 3, overflowX: 'auto' }}>

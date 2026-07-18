@@ -94,6 +94,22 @@ thirty seconds with one `npm install`.
 | Large / legacy / many unowned 3rd-party deps | **16 → 17 → 18** | Not because it's required — because it isolates the event-delegation blast radius into its own deploy with its own rollback. Pure project management. |
 | Must support IE11 | **stop at 17** | React 18 dropped IE. This is the one hard fork in the road. |
 
+> 🔴 **Advanced / gotcha** — **16 → 18 direct** is the sharp tool here. It works mechanically (nothing
+> gates on the version you skipped), but you eat React 17's *and* 18's breaking changes in a single
+> deploy, and the 18 upgrade guide documents none of 17's. Reach for it knowingly, with the React 17
+> release notes open beside you.
+
+**Tradeoffs — direct `16 → 18` vs staged `16 → 17 → 18`**
+
+- **Pros (direct):** one package bump, one QA cycle, one rollback unit; the 17→18 delta is genuinely
+  small, so on a small well-tested app the extra hop is ceremony.
+- **Cons (direct):** the event-delegation move, `onScroll` bubbling removal, the focus-event switch,
+  and async effect cleanup all land silently *and simultaneously* — a regression in any of them looks
+  like a fresh React 18 bug, with no changelog pointing at 17.
+- **When NOT to use it:** large or legacy apps, or any tree with unowned third-party deps that attach
+  listeners to `document`. Stage the hop so the event-delegation blast radius gets its own deploy and
+  its own revert.
+
 ---
 
 ## First: detect what you are actually running
@@ -124,6 +140,11 @@ grep -rn "findDOMNode\|createFactory\|react-dom/test-utils"
 > break, declare victory, then get all of 18's breakage months later when someone finally switches to
 > `createRoot`. **The version bump and the `createRoot` switch are two separate migrations wearing one
 > trench coat.** Do them as two PRs, in that order.
+
+> 🟢 **Best practice** — ship the package bump and the `createRoot` switch as two separate PRs, in
+> that order. The bump is trivial and reverts with a package downgrade; the root swap is the real
+> migration and the least reversible step in the matrix. One migration per PR keeps each a clean
+> rollback unit.
 
 ---
 
@@ -232,6 +253,17 @@ root.render(<App />);
 | Hydration mismatches became errors | Hard error instead of a silent patch-up | Fix the mismatch. |
 | `@types/react@18` removed implicit `children` from `React.FC` | `error TS2339: Property 'children' does not exist on type '{ title: string; }'` | `npx types-react-codemod@latest preset-18 ./src` |
 
+> 🔴 **Advanced / gotcha** — `flushSync` is the escape hatch from automatic batching, and it forces a
+> synchronous [commit](fundamentals#render-vs-commit) mid-event — the exact cost batching just
+> removed. Wrap it around the single update a third-party lib must observe immediately; never reach
+> for it app-wide, or you turn every batched render back into a separate one.
+
+> 🟢 **Best practice** — give every `useEffect` a real cleanup, and keep StrictMode on. Automatic
+> batching now collapses several state updates into one [commit](fundamentals#render-vs-commit)
+> rather than several, and StrictMode's dev-only double-invoke deliberately re-runs your effects to
+> expose a missing cleanup before production does. The race it surfaces — the slower of two in-flight
+> responses winning — is a [stale-closure](fundamentals#closures) hazard, not cosmetic noise.
+
 > **The production gotcha nobody warns about:** StrictMode double-invoke is **dev-only**, so the
 > double-fetch you "fixed" by deleting StrictMode is still a live race condition in production. The
 > prod bug is not "it fetches twice" — it's that **the slower of two in-flight responses wins**, so a
@@ -328,6 +360,11 @@ npx types-react-codemod@latest preset-19 ./src           # the 19 breaks
 ```
 
 ### Pin `@types/react` exactly
+
+> 🟢 **Best practice** — pin `@types/react` to an exact version, not a `^` range. It ships on its own
+> schedule, so a breaking types change (18 removing implicit `children`) arrives on a routine
+> `npm update`, not when you bump React. This is the one dependency where a caret range is a
+> liability rather than a convenience.
 
 `@types/react` is versioned **independently of React** and does not track it. Two consequences:
 
@@ -515,6 +552,11 @@ Each numbered step is **one PR, one deploy, one rollback unit**. Do not merge st
    context, `findDOMNode`, `createFactory`, module-pattern factories, `defaultProps` on function
    components. **Every 19 removal is fixable on 16.** This is the biggest de-risking insight in the
    matrix — HOP 3 is only "HIGH effort" if you skipped this step.
+
+> 🟢 **Best practice** — do this landmine sweep while you're still on React 16, where every one of
+> these is a *warning* rather than a *removal*: it fails loudly, and it reverts with a pure package
+> downgrade. Deferring it to HOP 3 turns loud warnings into silent runtime breakage during your most
+> dangerous hop.
 4. Pin `@types/react` **exactly**, add `overrides`, verify `npm ls @types/react` shows one copy.
 5. Fix `moduleResolution: "node"` if you're on TS 7 (see the blocker section).
 
@@ -545,6 +587,15 @@ Each numbered step is **one PR, one deploy, one rollback unit**. Do not merge st
 16. **React Compiler 1.0 last, pinned exactly** (`--save-exact`, `"1.0.0"` not `"^1.0.0"`). The
     compiler *magnifies* Rules-of-React violations rather than fixing them — adopting it before steps
     1–15 means debugging two things at once. See `react-compiler` for detail.
+
+> 🔴 **Advanced / gotcha** — turn the compiler on *last*, and don't treat it as a licence to mass-delete
+> your `useMemo`/`useCallback`. When it works, it auto-memoizes hard: the same unchanged child that
+> renders 11 times without it rendered **once** with it (11 → 1, measured on a small reproduction —
+> React 19, jsdom; production will differ). But bailouts are *silent and per-function* — a single
+> render-phase mutation makes it skip a component with no error, no warning, no build failure, and the
+> child quietly goes back to 11 renders. Removing existing manual memoization can also change what the
+> compiler emits, which is why `react-hooks/preserve-manual-memoization` ships as an **error-level**
+> rule. See `react-compiler`.
 
 ---
 

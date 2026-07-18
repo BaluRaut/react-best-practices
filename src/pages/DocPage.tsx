@@ -5,6 +5,7 @@ import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import Stack from '@mui/material/Stack'
 
+import { LabelLegend } from '../components/LabelLegend'
 import { Markdown } from '../components/Markdown'
 import { DOCS_BY_SLUG, loadBody } from '../content/registry'
 import { NotFound } from './NotFound'
@@ -41,7 +42,11 @@ export function DocPage() {
           <CircularProgress />
         </Box>
       ) : (
-        <Markdown>{body}</Markdown>
+        <>
+          {/* Show the taxonomy only on pages that actually use a labelled callout. */}
+          {/🟢|🟡|🔴/.test(body) && <LabelLegend />}
+          <Markdown>{body}</Markdown>
+        </>
       )}
     </Box>
   )

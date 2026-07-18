@@ -49,6 +49,17 @@ fields only when you genuinely need them. Concretely, and non-negotiably for the
 - **Always make `name` equal the directory name.** The open standard requires this; Claude Code does
   not. Matching costs nothing and keeps the skill portable and valid for an API upload.
 
+> 🟢 **Best practice** — always set `name` and `description`, and make `name` equal the directory name.
+> This is a portability/correctness rule, not an optimization: a skill missing `name` is invalid under
+> the open standard and rejected on an API upload, even though Claude Code would silently accept it.
+> Authoring to the strictest authority keeps one source of truth valid on every surface.
+>
+> **Tradeoffs.** *Pros:* one skill runs unchanged in Claude Code, the API, and any open-standard tool —
+> no per-surface forks. *Cons:* you forgo the Claude-Code-only conveniences (directory-derived `name`,
+> the extra behavioural fields) unless you consciously opt in. **When NOT to use it:** a skill you will
+> *only ever* run in your own Claude Code and never upload or share can lean on the laxer rules — but
+> matching the strict form is so cheap that "portable by default" is the better habit.
+
 The build script does exactly this. Its header comment states the target: "the INTERSECTION of the
 three skill authorities... always a kebab-case `name` matching the directory, always a `description`
 under 1024 chars that leads with WHEN to use the skill."
@@ -86,6 +97,9 @@ Claude-Code-only skill that needs the behaviour.
 | **`version`** (top-level) | **Folklore.** In no authority's table. |
 | **`tools`** | **Not a field in any spec.** The real field is `allowed-tools`. |
 
+> 🔴 **Advanced / gotcha** — the fields that *look* real but aren't. `version:` and `tools:` parse
+> without error and are silently ignored, so the mistake ships unnoticed.
+>
 > **`version:` as a top-level field is cargo-culted inside Anthropic's own plugins.** A scan of 41
 > shipped `SKILL.md` files found 13 with a top-level `version:` — all plugin skills, all `0.1.0`-ish,
 > all inert. Nothing consumes it. Two other skills write `tools: Read, Glob, Grep, Bash`, which is
@@ -141,6 +155,10 @@ Verbatim: "The frontmatter `name` field sets the display label shown in skill li
 for a plugin-root `SKILL.md`, does not change what you type after `/`." Making `name == directory
 name` means the display label and the command agree, which is why we enforce it.
 
+> 🔴 **Advanced / gotcha** — the slash command comes from the *directory*, not from `name` (except a
+> plugin-root `SKILL.md`). Rename the frontmatter `name` and the command you type is unchanged; move
+> the directory and it changes. Keeping `name == directory` collapses the two so they can't surprise you.
+
 ## `description`: the field that decides whether the skill runs
 
 The `description` is injected into the system prompt at startup for every skill. Claude reads it to
@@ -165,6 +183,11 @@ description: Extract text and tables from PDF files, fill forms, merge documents
 
 Explicitly rejected by the docs: `Helps with documents`, `Processes data`, `Does stuff with files`.
 
+> 🟢 **Best practice** — write the `description` in the third person and in the shape
+> `<what it does>. Use when <triggers>.` with concrete keywords. This is a correctness rule for
+> *discovery*, not a stylistic one: the description is the only text Claude sees at selection time, so a
+> vague one means the skill silently never fires — the failure is an invisible no-op, not an error.
+
 ### Descriptions get silently truncated — front-load the trigger
 
 There are two independent caps, both in Claude Code:
@@ -181,6 +204,10 @@ Verbatim:
 > match your request. When the listing overflows, Claude Code drops descriptions starting with the
 > skills you invoke least, so the skills you use most keep their full text."
 
+> 🟡 **Optimization** — front-load trigger keywords so they survive listing truncation. This only
+> matters once you have many skills competing for the listing budget; for a handful of skills the whole
+> description fits and ordering is cosmetic.
+>
 > **A rarely-used skill with a long description is exactly the one that gets its trigger keywords
 > amputated.** Put the key use case FIRST. The skills in this repo lead with `Use when...` precisely
 > so the trigger survives truncation. Diagnose listing cost with `/doctor` and the Skills row of
@@ -207,6 +234,8 @@ Skills live in one of these locations. `<skill-name>` is both the directory name
 > "When skills share the same name across levels, enterprise overrides personal, and personal
 > overrides project. A skill at any of these levels also overrides a bundled skill with the same name."
 
+> 🔴 **Advanced / gotcha** — precedence runs opposite to most config systems.
+>
 > **Personal beats project.** That inverts how most config systems work. A `code-review` skill in
 > your `~/.claude/skills/` silently shadows the one committed to a repo. If a project skill "isn't
 > working," check for a personal skill of the same name first. Plugin skills sidestep this — they use
@@ -248,6 +277,11 @@ skill-name/
 > finds a file only because `SKILL.md` links to it: "Reference these files from your `SKILL.md` so
 > Claude knows what they contain and when to load them." A reference file no one links to is dead weight.
 
+> 🟢 **Best practice** — link every reference from `SKILL.md` and keep it one level deep, with a table
+> of contents at the top of any file over 100 lines. The *why:* nothing auto-loads `references/` — Claude
+> reaches a file only through a link, and it may only `head -100` a nested one, so an unlinked or deeply
+> nested reference is either invisible or read incompletely.
+
 Two consequences worth designing around:
 
 - **Scripts are cheaper than generated code.** When Claude runs a bundled script, the script's source
@@ -258,9 +292,24 @@ Two consequences worth designing around:
   incomplete information." For any reference file longer than 100 lines, put a table of contents at the
   top so the full scope is visible even under a partial read.
 
+> 🟡 **Optimization** — prefer a bundled script (`Run scripts/validate.py`) over pasting the equivalent
+> logic into the body, because the script's *source* never enters the context window — only its output
+> does. Apply it when the body would otherwise carry non-trivial deterministic logic that runs on demand.
+>
+> **Tradeoffs.** *Pros:* keeps the recurring body token cost low (the body is re-attached every turn —
+> see below); the logic is testable and versioned as a file. *Cons:* a script is another file to
+> maintain, only helps for genuinely mechanical work, and adds an execution round-trip. **When NOT to
+> use it:** a one-line check or a task with many valid approaches — inline prose is clearer and the token
+> saving is noise. Reach for a script only when there is a fixed, fragile procedure worth freezing.
+
 ### Claude Code only: skill content is sticky
 
 Not in the platform docs, and a real production surprise:
+
+> 🔴 **Advanced / gotcha** — an invoked `SKILL.md` is *sticky*: its rendered body stays in the
+> conversation for the rest of the session and is re-attached on compaction, so it is a **recurring**
+> token cost, not a one-time one. Write standing instructions ("state what to do"), not one-time
+> narration that only makes sense on the turn it loaded.
 
 > "When you or Claude invoke a skill, the rendered `SKILL.md` content enters the conversation as a
 > single message and stays there for the rest of the session. Claude Code does not re-read the skill
@@ -334,6 +383,8 @@ as a weak preference; internal consistency matters more. Avoid `helper`, `utils`
 
 ## `allowed-tools` is narrower than it looks
 
+> 🔴 **Advanced / gotcha** — `allowed-tools` reads like a capability restriction but is the opposite.
+>
 > **`allowed-tools` is a per-turn permission grant, not a sandbox.** It "grants permission for the
 > listed tools during the turn that invokes the skill... The grant clears when you send your next
 > message... It does not restrict which tools are available: every tool remains callable."
@@ -341,6 +392,12 @@ as a weak preference; internal consistency matters more. Avoid `helper`, `utils`
 So it suppresses permission prompts for one turn — it does not remove tools. To actually *remove*
 tools, use `disallowed-tools` (also clears on the next message). For session-wide control, use
 permission settings. It is marked Experimental in the open standard; keep it off portable skills.
+
+**Tradeoffs.** *Pros:* fewer permission interruptions during a fragile, known-safe procedure. *Cons:*
+it is Experimental, non-portable, and easy to misread as a security boundary it is not; a project skill's
+grant is also gated behind the workspace-trust dialog. **When NOT to use it:** on any skill you intend to
+share or upload, and any time you actually want to *restrict* tools — reach for `disallowed-tools` or
+session permission settings instead.
 
 ## Install the skills in this repo
 

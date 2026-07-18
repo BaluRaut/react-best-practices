@@ -20,6 +20,8 @@ This is the single highest-frequency production bug in this whole page, so it go
 
 The rule: **default to `??`. Reach for `||` deliberately, and comment it when you do.** The failure `||` causes is that a caller who explicitly passed `0`, `''`, or `false` gets silently overridden — the config they set is ignored, and nothing errors.
 
+> 🟢 **Best practice** — default to `??` for fallbacks. This is a correctness rule, not a style preference: `||` conflates "absent" with "falsy," and the bug is silent. It costs nothing to prefer `??`.
+
 ```js
 // ❌ BAD — realistic and wrong
 function createClient(opts = {}) {
@@ -65,6 +67,8 @@ Same falsy family, different symptom. `&&` returns its left operand when that op
 
 The rule: **the left side of `&&` in JSX must be a boolean.** Never gate JSX on `.length` or any number directly.
 
+> 🟢 **Best practice** — coerce the left operand of `&&` to a real boolean. The reason is what React actually [commits](fundamentals#render-vs-commit): it skips `false`/`null`/`undefined` but renders `0` as a text node, so a bare number leaks a stray "0" into the DOM.
+
 ## Immutable array methods (ES2023, universally Baseline)
 
 `toSorted`, `toReversed`, `toSpliced`, `with`, and `at` are the copying counterparts of the mutating array methods. All Baseline, all present in Node 24. In React they matter because `.sort()` and `.reverse()` **mutate in place** — they reorder your state array, leave the reference unchanged, and the component never re-renders.
@@ -76,6 +80,8 @@ const sorted = users.sort((a, b) => a.age - b.age);
 // ✅ GOOD — new array, new reference, React re-renders
 const sorted = users.toSorted((a, b) => a.age - b.age);
 ```
+
+> 🟢 **Best practice** — use the copying methods (`toSorted`, `toReversed`, `toSpliced`, `with`) on React state. This is a correctness rule tied to [reconciliation](fundamentals#reconciliation): React bails out when a state value is the same reference, so an in-place `.sort()` both fails to re-render *and* silently reorders the array you already committed.
 
 > **`toSorted` did NOT fix the 1990s default comparator.** With no comparator it is *still* a string sort, exactly like `sort()`. People assume the shiny new method fixed both problems. It only fixed mutation.
 >
@@ -134,6 +140,10 @@ const next = { ...state, filters: { ...state.filters, tag: 'new' } };
 
 **Recommendation:** prefer immutable updates (spread at each level, or a helper like Immer) over deep cloning in React state. Use `structuredClone` for *plain data only* — cache snapshots, worker messages, IndexedDB values. It is not a serializer and not an object copier.
 
+> 🔴 **Advanced / gotcha** — `structuredClone` is a sharp tool, not a general deep-copy. It strips prototypes, throws `DataCloneError` on anything holding a function (props with an `onClick`, a class instance, a React element), and evaluates getters into plain values. Reach for it knowingly, only on plain data.
+>
+> **Tradeoffs.** Pros: true deep clone of cyclic data, preserves `Date`/`Map`/`Set`/`RegExp`/`BigInt` that JSON destroys. Cons: silently drops methods and prototypes; hard-throws on callbacks; no way to customize what transfers. **When NOT to use it:** anything that will later be called as a method, any React state/props tree, any value carrying behavior — use per-level spread or Immer instead.
+
 ## `Object.groupBy` / `Map.groupBy`
 
 Partition a collection by a key function. Use `Object.groupBy` for string keys; `Map.groupBy` when the key is an object or number and you need identity.
@@ -179,6 +189,19 @@ In Node ≥ 15 an unhandled rejection **exits the process by default**. This pat
 // ✅ Promise.all attaches a handler to p2 right away
 const [user, orders] = await Promise.all([fetchUser(), fetchOrders()]);
 ```
+
+> 🟢 **Best practice** — never sequentially `await` two eagerly-created promises. This is a correctness rule: it removes the genuine unhandled-rejection crash above by attaching a handler to every promise the moment it exists.
+
+Handing independent requests to `Promise.all` is also just faster, because they run concurrently instead of end-to-end. Three independent requests, awaited in turn vs. together, **measured on a small reproduction (React 19, jsdom); your numbers will differ in production**:
+
+| Strategy | Wall time |
+|---|---|
+| `await` each in turn | 604 ms |
+| `await Promise.all([...])` | 221 ms |
+
+The parallel time is roughly the single slowest request; the sequential time is the sum.
+
+> 🟡 **Optimization** — parallelize *independent* requests. **Tradeoffs.** Pros: wall time collapses to the slowest request, not the sum. Cons: all requests fire at once (more peak load), and `Promise.all` rejects on the first failure. **When NOT to use it:** when request B needs A's result — then they *must* stay sequential — or when you want every outcome regardless of failures, where `allSettled` is the right combinator.
 
 ### Choosing a combinator
 
@@ -230,6 +253,8 @@ catch (err) { throw new Error(`failed to load user ${id}`, { cause: err }); }
 
 Node's `console.error` and `util.inspect` print the full `[cause]` chain automatically.
 
+> 🟢 **Best practice** — re-throw with `{ cause }`. Interpolating `err.message` into a new string is lossy: it discards the stack, the original `cause`, `err.code`, and any custom fields, leaving you a substring where you needed the whole error.
+
 `Error.isError(x)` (ES2026, verified in Node 24) exists for one real reason: `x instanceof Error` **returns `false`** for an Error thrown across a realm boundary — an iframe, a `vm` context, a worker. `Error.isError` gets it right across realms, and is also not fooled by a `{ name: 'Error', message: 'x' }` duck-type.
 
 ## `AbortController` / `AbortSignal` — cancellation
@@ -256,6 +281,8 @@ useEffect(() => {
 
 The real reason to abort on cleanup is not the (React 18+ non-existent) "setState on unmounted component" warning — it's the **race**: without it, a slow earlier response can land *after* a fast later one and overwrite the correct data.
 
+> 🟢 **Best practice** — abort in-flight fetches from the effect's cleanup. The effect re-runs whenever [the dependency array](fundamentals#dependency-arrays) changes (here `[url]`), so each run must cancel the previous request or a stale response can win the race and clobber current state.
+
 > **Four abort gotchas:**
 > 1. **A timeout and a user-cancel reject differently.** `AbortSignal.timeout()` rejects with a `TimeoutError` `DOMException`; `controller.abort()` gives an `AbortError`. Distinguish them — a timeout is retryable, a user cancel is not.
 > 2. **Never report an abort as an error.** `if (err.name === 'AbortError') return;` — otherwise every navigation-away spams your error tracker.
@@ -276,6 +303,8 @@ const firstTen = users.values()
 ```
 
 versus `users.filter(...).map(...).slice(0, 10)`, which builds two full intermediate arrays before slicing.
+
+> 🟡 **Optimization** — iterator helpers over chained array methods. **Tradeoffs.** Pros: no intermediate arrays, and `take`/early-return can stop before consuming the whole source — a real win over a large or expensive-to-produce collection. Cons: the chain is single-use (see gotchas), less familiar than array methods, and requires a `.values()` hop off a bare array. **When NOT to use it:** small collections or when you need the result more than once — a plain array chain is clearer and re-iterable, and the allocation it saves is noise at that size.
 
 > **Iterator gotchas:**
 > 1. **Iterators are single-use.** Reusing a helper chain silently yields `[]` the second time — no error. Arrays are re-iterable; iterators are not.
@@ -300,6 +329,8 @@ Works in ESM (verified). It has two real costs:
 2. **It blocks the importer graph.** A top-level `await` in a leaf module delays every module that imports it. In a Vite SPA that is shipped-but-stalled JavaScript sitting in front of first paint.
 
 Top-level `await` is fine in app entrypoints and build scripts. **Avoid it in shared libraries.**
+
+> 🔴 **Advanced / gotcha** — top-level `await` is a one-way door for a published module: it makes the module async, which makes it `require()`-incompatible *graph-wide* (see below), and it blocks every importer's first paint in a Vite SPA. Use it knowingly in an entrypoint; keep it out of anything others import.
 
 ## ESM vs CommonJS in 2026 — `require(esm)` landed unflagged
 

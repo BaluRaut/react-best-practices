@@ -31,6 +31,12 @@ So why does the folklore persist? Because it's **wrong about the mechanism but r
 
 **Correct framing: React 17 is an optional de-risking checkpoint, not a required hop.** Splitting 16→17→18 is a *project-management* decision that isolates the event-delegation breakage into its own PR, shrinking each blast radius. React still recommends upgrading the whole app at once when you can — "For most apps, upgrading all at once is still the best solution." The staged path is for large apps where you want each class of breakage bisectable, not for a technical requirement that does not exist.
 
+> 🟡 **Optimization (process, not code)** — staging as 16→17→18 buys a smaller blast radius per PR at the cost of doing the migration twice.
+>
+> **Pros:** each class of breakage (event delegation, then automatic batching / `createRoot` / StrictMode double-mount) is bisectable in isolation; a regression points at one PR, not five.
+> **Cons:** more total churn, a longer migration calendar, and time spent parked on 17 — a version with no future.
+> **When NOT to use it:** small-to-medium apps, or any app with disciplined event handling and no third-party widget zoo — jump straight to 18/19 and skip the detour, exactly as React's own "upgrade all at once" advice suggests.
+
 Everything below is the set of breaking changes you must handle when crossing the 16→17 line — whether you land on 17 or blow past it to 18/19.
 
 ---
@@ -51,6 +57,12 @@ Everything below is the set of breaking changes you must handle when crossing th
 - Two Reacts means **two copies of every context-based library**: your design system, your router, your store — duplicated, each with its own independent internal state.
 
 Rank of options for a real team: (1) upgrade the whole app; (2) upgrade the whole app but stage it 16→17→18; (3) two Reacts on one page. Option 3 is for when a business unit refuses to fund migrating a subtree — not for when it's merely tedious.
+
+> 🔴 **Advanced / last resort** — running two React versions on one page is a genuinely nasty escape hatch, and React frames it that way: *"a last resort when you can't upgrade."*
+>
+> **Pros:** unblocks an app that literally cannot move a legacy subtree; the other 95% ships on a current React.
+> **Cons:** two copies of every context-based library (router, design system, store), each with independent state; **context does not cross the boundary**, so you hand-bridge every provider through props; a heavier payload, mitigated only by lazy-loading the legacy bundle behind `<Suspense>`.
+> **When NOT to use it:** when migrating the subtree is merely *tedious* rather than *funded-refused*. Tedious-but-possible always beats two Reacts.
 
 ---
 
@@ -102,7 +114,9 @@ This is the fix React itself recommends. Note the **semantic shift**: you now fi
 
 **Better still:** listen on the root container directly, or handle it inside React with an `onClickCapture` at the top of the tree. The `document` + `{ capture: true }` combo is the minimal-diff fix, not the clean one.
 
-> **The click-outside dismissal bug is the canonical casualty.** Every hand-rolled dropdown / modal / popover that does `document.addEventListener('click', closeIfOutside)` and coexists with a component calling `e.stopPropagation()` breaks *in one direction only*: the menu stops closing. It doesn't throw. It doesn't warn. It ships. `grep -rn "document.addEventListener" src/` before you upgrade — that grep is the single highest-value action in a 16→17 migration.
+> 🔴 **Gotcha — `{ capture: true }` reorders; it does not just re-register.** Your handler now runs *before* React processes the event, so any code that read state or DOM expecting React to have already committed is now one interaction behind — a [stale-closure](fundamentals#closures)-adjacent trap. Prefer `onClickCapture` at the top of the React tree, or a listener on the root container itself; reach for the `document` + capture combo only when a minimal diff matters more than a clean one.
+
+> 🟢 **Best practice — grep before you upgrade.** The click-outside dismissal bug is the canonical casualty. Every hand-rolled dropdown / modal / popover that does `document.addEventListener('click', closeIfOutside)` and coexists with a component calling `e.stopPropagation()` breaks *in one direction only*: the menu stops closing. It doesn't throw. It doesn't warn. It ships. `grep -rn "document.addEventListener" src/` before you upgrade — that grep is the single highest-value action in a 16→17 migration.
 
 ### More production gotchas
 
@@ -143,6 +157,8 @@ All from the 17.0.0 changelog. These are separate breakages people misattribute 
 ```
 
 Failure mode: infinite-scroll and scroll-spy silently stop firing. This is *correct* behavior now — native `scroll` doesn't bubble — but it looks like a regression.
+
+> 🟢 **Best practice** — put `onScroll` on the element that actually scrolls, not on an ancestor. This was always the correct wiring; React 16 just papered over the mistake by emulating bubbling. Getting it right is free and portable across every React version.
 
 **`onFocus`/`onBlur` now use native `focusin`/`focusout`** (#19186). These *do* bubble natively, which is why React can use them. Mostly transparent, but the underlying native `event.type` differs, so code inspecting `e.nativeEvent.type` breaks. Also fixed alongside: `relatedTarget` reported as `undefined` in Firefox (#19607).
 
@@ -202,7 +218,7 @@ function handleChange(e) {
 }
 ```
 
-> **`e.persist()` still exists on React 17+ — it just does nothing.** So it's not a migration blocker and a codemod isn't urgent. But it's a **one-way door**: once you delete `persist()` calls or write new async-event code, you cannot roll back to React 16 without reintroducing the crash. If you're doing a staged rollout with a revert plan, leave the `persist()` calls in place until 17 is locked in. This is the sort of thing that makes a "safe" revert produce a broken app.
+> 🔴 **Gotcha — `e.persist()` still exists on React 17+; it just does nothing.** So it's not a migration blocker and a codemod isn't urgent. But it's a **one-way door**: once you delete `persist()` calls or write new async-event code, you cannot roll back to React 16 without reintroducing the crash. If you're doing a staged rollout with a revert plan, leave the `persist()` calls in place until 17 is locked in. This is the sort of thing that makes a "safe" revert produce a broken app.
 
 ---
 
@@ -242,6 +258,8 @@ useEffect(() => {
 
 The general rule: **anything mutable you read in setup, capture into a local before the cleanup closure.** This is a good habit independently of React 17 — React 18's StrictMode double-mount and concurrent features punish the same mistake harder.
 
+> 🟢 **Best practice — capture mutable values into the effect closure.** React nulls refs during [commit](fundamentals#render-vs-commit), and 17's deferred cleanup runs *after* the screen update, so a `ref.current` read inside a cleanup can already be `null`. Reading it once into a local at setup time closes over the value you actually want — the same discipline that keeps you out of [stale-closure](fundamentals#closures) bugs. This is a correctness rule, not an optimization: it costs nothing and it is the right default on every React version.
+
 **Nice surprise:** React 17 *specifically* suppresses the "Can't perform a React state update on an unmounted component" warning in the gap between unmount and deferred cleanup. Per the RC post, React *"does not fire setState warnings in the short gap between unmounting and the cleanup,"* so abort/`clearInterval` cleanups need no changes.
 
 ---
@@ -250,7 +268,13 @@ The general rule: **anything mutable you read in setup, capture into a local bef
 
 **The rule:** Turn on the automatic JSX runtime. Stop writing `import React from 'react'` for JSX.
 
-**Why:** the classic transform compiles JSX to `React.createElement()`, so `React` had to be in lexical scope in every JSX file — pure boilerplate, and a footgun (a bundler that tree-shakes an "unused" React import breaks the file). The new transform imports `react/jsx-runtime` automatically, produces slightly better output, and lets non-React libraries own JSX via `jsxImportSource`.
+**Why:** the classic transform compiles JSX to `React.createElement()`, so `React` had to be in lexical scope in every JSX file — pure boilerplate, and a footgun (a bundler that tree-shakes an "unused" React import breaks the file). The new transform imports `react/jsx-runtime` automatically, produces slightly better output, and lets non-React libraries own JSX via `jsxImportSource`. (What `createElement` and `_jsx` return — the element description React later reconciles and commits — is [render vs commit](fundamentals#render-vs-commit) territory; the transform only changes *who writes the call*, not what it produces.)
+
+> 🟢 **Best practice — adopt the automatic JSX runtime.** It removes per-file boilerplate and a real footgun, and it's decoupled from React 17 so you can adopt it on 16.14 without upgrading the runtime.
+>
+> **Pros:** no `import React` for JSX; slightly smaller/faster output; non-React libraries can own JSX via `jsxImportSource`.
+> **Cons:** you must ship `react-jsx` (not `react-jsxdev`) to production or you leak `__source`/`__self` file-line-column data into the bundle and pay a runtime cost; adoption is a whole-codebase diff.
+> **When NOT to fold it in:** never bundle it into the event-system migration — do it as its own PR, or the upgrade becomes unbisectable (see the checklist).
 
 **Compilation, exactly:**
 

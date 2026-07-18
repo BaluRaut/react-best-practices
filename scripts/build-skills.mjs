@@ -74,6 +74,42 @@ const SKILLS = [
     description:
       'Use when testing React (Vitest + React Testing Library), fixing accessibility (focus management on route change, roles, labels), improving performance (INP, bundle size, code splitting), or choosing linters and project structure for a React SPA.',
   },
+  {
+    name: 'react-fundamentals',
+    src: 'fundamentals',
+    description:
+      'Use when a React bug or decision needs the underlying model: render vs commit, reconciliation and keys, stale closures, dependency arrays, or why render must be pure. Explains the why behind the rules other skills apply.',
+  },
+  {
+    name: 'react-architecture',
+    src: 'architecture',
+    description:
+      'Use when structuring a React codebase: feature-based vs layer-based folders, colocation, and the measured cost of barrel files. For laying out a project so it survives growth.',
+  },
+  {
+    name: 'react-state-management',
+    src: 'state-management',
+    description:
+      'Use when deciding where React state should live: local, lifted, Context, or an external store (Zustand, Redux, Jotai). A decision guide with the measured cost of un-split Context re-renders.',
+  },
+  {
+    name: 'react-forms',
+    src: 'forms',
+    description:
+      'Use when building React forms: controlled vs uncontrolled inputs, React 19 Actions and useActionState, validation, and when react-hook-form earns its weight over plain state.',
+  },
+  {
+    name: 'react-custom-hooks',
+    src: 'custom-hooks',
+    description:
+      'Use when designing or reviewing a custom React hook: naming, return shapes, composition, when to extract, and advanced ref/latest patterns (which are advanced, not defaults).',
+  },
+  {
+    name: 'react-data-layer',
+    src: 'data-layer',
+    description:
+      'Use when fetching or caching server data in React: structuring the API layer, TanStack Query, request cancellation, and sequential vs parallel fetching. Treats server data as a cache, not state.',
+  },
 ]
 
 const MAX_DESCRIPTION = 1024 // open-standard limit
