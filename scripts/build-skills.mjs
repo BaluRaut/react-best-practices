@@ -110,6 +110,12 @@ const SKILLS = [
     description:
       'Use when fetching or caching server data in React: structuring the API layer, TanStack Query, request cancellation, and sequential vs parallel fetching. Treats server data as a cache, not state.',
   },
+  {
+    name: 'js-ts-performance',
+    src: 'performance-craft',
+    description:
+      'Use when optimizing JavaScript or TypeScript performance, choosing a loop, or benchmarking: how to micro-benchmark without lying to yourself, the measured truth about for/while/forEach/map, hot-path idioms (object shapes, array holes, allocation), and which classic perf rules are now obsolete. Measure, do not guess.',
+  },
 ]
 
 const MAX_DESCRIPTION = 1024 // open-standard limit

@@ -98,6 +98,15 @@ export const DOCS: Doc[] = [
     tags: ['javascript', 'es2024', 'async', 'immutability'],
     skill: 'modern-javascript',
   },
+  {
+    slug: 'performance-craft',
+    title: 'Performance Craft (JS/TS)',
+    blurb:
+      'What a staff engineer actually does about performance: how to micro-benchmark honestly, the for/while/forEach truth (measured), hot-path idioms, and the folklore that is now wrong. Measure, do not guess.',
+    section: 'foundations',
+    tags: ['performance', 'benchmarking', 'loops', 'v8', 'hot-path'],
+    skill: 'js-ts-performance',
+  },
 
   // ── Versions ─────────────────────────────────────────────────────────────────
   {
