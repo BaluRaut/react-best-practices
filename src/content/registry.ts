@@ -107,6 +107,15 @@ export const DOCS: Doc[] = [
     tags: ['performance', 'benchmarking', 'loops', 'v8', 'hot-path'],
     skill: 'js-ts-performance',
   },
+  {
+    slug: 'design-principles',
+    title: 'Design Principles for React',
+    blurb:
+      'SOLID translated to components and hooks, composition over configuration, polymorphism (the as prop, compound components, render props), and data-driven over conditional. The patterns to follow instead of guessing.',
+    section: 'foundations',
+    tags: ['solid', 'composition', 'polymorphism', 'patterns', 'architecture'],
+    skill: 'frontend-design-principles',
+  },
 
   // ── Versions ─────────────────────────────────────────────────────────────────
   {
@@ -160,6 +169,24 @@ export const DOCS: Doc[] = [
     section: 'stack',
     tags: ['mui', 'material-ui', 'theming', 'dark-mode', 'sx'],
     skill: 'material-ui',
+  },
+  {
+    slug: 'antd-v6',
+    title: 'Ant Design v6',
+    blurb:
+      'Current Ant Design (6.5.x): what changed from v5, the React 18+ requirement, design tokens and ConfigProvider, the CSS-in-JS engine, dark algorithm, and the v5→v6 migration.',
+    section: 'stack',
+    tags: ['antd', 'ant-design', 'v6', 'design-tokens', 'migration'],
+    skill: 'ant-design-v6',
+  },
+  {
+    slug: 'antd-v5',
+    title: 'Ant Design v5',
+    blurb:
+      'Ant Design 5.29.x done well: the CSS-in-JS token system, ConfigProvider theming, the dark and compact algorithms, static-method context pitfalls, and tree-shaking.',
+    section: 'stack',
+    tags: ['antd', 'ant-design', 'v5', 'design-tokens', 'theming'],
+    skill: 'ant-design-v5',
   },
   {
     slug: 'vite',

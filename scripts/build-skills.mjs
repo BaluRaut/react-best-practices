@@ -116,6 +116,24 @@ const SKILLS = [
     description:
       'Use when optimizing JavaScript or TypeScript performance, choosing a loop, or benchmarking: how to micro-benchmark without lying to yourself, the measured truth about for/while/forEach/map, hot-path idioms (object shapes, array holes, allocation), and which classic perf rules are now obsolete. Measure, do not guess.',
   },
+  {
+    name: 'frontend-design-principles',
+    src: 'design-principles',
+    description:
+      'Use when structuring React components, hooks, or component APIs: SOLID applied to the front end, composition over configuration, polymorphism (the as prop, compound components, render props), and data-driven over conditional rendering. Follow these patterns instead of guessing at component design.',
+  },
+  {
+    name: 'ant-design-v6',
+    src: 'antd-v6',
+    description:
+      'Use when building UI with Ant Design (antd) v6, or migrating from v5: the React 18+ requirement, design tokens and ConfigProvider, the CSS-in-JS engine, dark algorithm, and v5→v6 breaking changes. Targets antd 6.5.x.',
+  },
+  {
+    name: 'ant-design-v5',
+    src: 'antd-v5',
+    description:
+      'Use when building UI with Ant Design (antd) v5: the CSS-in-JS design-token system, ConfigProvider theming, dark and compact algorithms, the static-method context pitfall (message/notification/Modal), and tree-shaking. Targets antd 5.29.x.',
+  },
 ]
 
 const MAX_DESCRIPTION = 1024 // open-standard limit

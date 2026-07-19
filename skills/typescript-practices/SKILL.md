@@ -165,8 +165,9 @@ const cfg: Record<string, number> = {};
 const n: number = cfg.missing;    // no error by default — n is undefined at runtime
 ```
 
-With the flag on, both error (`TS2322: Type 'string | undefined' is not assignable to type
-'string'`), forcing you to handle the `undefined`:
+With the flag on, both error (verified under `tsc@7.0.2`): the array access errors `TS2532: Object is
+possibly 'undefined'`, and the record access errors `TS2322: Type 'number | undefined' is not assignable
+to type 'number'`. Either way you're forced to handle the `undefined`:
 
 ```ts
 // GOOD — the undefined is in the type, so you must handle it
@@ -287,8 +288,10 @@ template ships with `erasableSyntaxOnly: true` already set.
 
 `@types` packages **no longer auto-load** from `node_modules/@types`.
 
-- with no `types` option → a global like `describe`/`process`/`__dirname` errors `TS2304: Cannot
-  find name '…'`.
+- with no `types` option → a global like `describe`/`process`/`__dirname` errors `Cannot find name '…'`.
+  The exact code is helpfully specific (verified under `tsc@7.0.2`): `__dirname` is a bare `TS2304`,
+  but `process` is `TS2591` ("Do you need to install `@types/node`?") and `describe` is `TS2593`
+  ("Do you need `@types/jest` or `@types/mocha`?") — the compiler tells you which package is missing.
 - with `"types": ["node", "vitest/globals"]` → clean.
 
 **Failure mode:** you upgrade and get a wall of `Cannot find name 'describe' / 'expect' / 'process'`.
