@@ -52,6 +52,23 @@ function slugAnchor(title) {
   return title.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')
 }
 
+// Demote every heading one level — but ONLY outside fenced code blocks, so a `#` shell comment
+// inside a ```bash block is not mistaken for a heading and corrupted.
+function demoteHeadings(md) {
+  let inFence = false
+  return md
+    .split('\n')
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence
+        return line
+      }
+      if (!inFence && /^#{1,5}\s/.test(line)) return `#${line}`
+      return line
+    })
+    .join('\n')
+}
+
 function build() {
   rmSync(OUT, { recursive: true, force: true })
   mkdirSync(OUT, { recursive: true })
@@ -70,9 +87,8 @@ function build() {
       // Demote every heading one level (# → ##, ## → ###, …) so the page's own H1 becomes an H2
       // section and the consolidated file keeps exactly one H1.
       const h1 = body.match(/^#\s+(.+)$/m)?.[1] ?? slug
-      const demoted = body.replace(/^(#{1,5})\s/gm, (_m, hashes) => `${hashes}# `)
       toc.push(`- [${h1}](#${slugAnchor(h1)})`)
-      parts.push(demoted)
+      parts.push(demoteHeadings(body))
     }
 
     const frontmatter =

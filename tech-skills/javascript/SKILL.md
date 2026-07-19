@@ -1114,13 +1114,13 @@ Code conventions don't stop at the code — the git history is documentation too
 Commits** is the widely-adopted format that makes it machine-readable: `type(scope): summary`.
 
 ```bash
-## 🟢 conventional commits — a parseable type, an optional scope, an imperative summary
+# 🟢 conventional commits — a parseable type, an optional scope, an imperative summary
 feat(auth): add password-reset flow
 fix(cart): stop total from going negative on coupon stacking
 refactor(api): extract the retry logic into a shared client
 docs: correct the install command in the readme
 
-## 🔴 the history nobody can read or automate against
+# 🔴 the history nobody can read or automate against
 git commit -m "stuff"
 git commit -m "fixes"
 git commit -m "WIP asdf"

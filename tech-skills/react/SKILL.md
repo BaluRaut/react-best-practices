@@ -615,7 +615,7 @@ The compiler's version line **reset** at 1.0. It decoupled from React's version 
 
 ```bash
 npm view babel-plugin-react-compiler dist-tags
-## latest: 1.0.0    rc: 19.1.0-rc.3   ← older code, higher number
+# latest: 1.0.0    rc: 19.1.0-rc.3   ← older code, higher number
 ```
 
 > Reflexively pinning `babel-plugin-react-compiler@rc` **downgrades you to a prerelease**. Install
@@ -4328,7 +4328,7 @@ install (Node 24.16.0, npm 11.13.0); primary facts are quoted from react.dev.
 prints this:
 
 ```bash
-## ❌ DEAD — fails with "No command provided" on codemod@1.12.13
+# ❌ DEAD — fails with "No command provided" on codemod@1.12.13
 npx codemod@latest react/19/migration-recipe
 ```
 
@@ -4337,7 +4337,7 @@ is gone. Every React 19 migration blog post on the internet still carries the de
 that actually works:
 
 ```bash
-## ✅ WORKS — verified end to end on codemod@1.12.13
+# ✅ WORKS — verified end to end on codemod@1.12.13
 npx codemod@latest run react-19-migration-recipe -t ./src --no-interactive
 ```
 
@@ -4422,17 +4422,17 @@ thirty seconds with one `npm install`.
 Teams are routinely wrong about this. Run these before planning anything.
 
 ```bash
-## Runtime version, not what package.json claims:
+# Runtime version, not what package.json claims:
 node -p "require('react').version"
 npm ls react react-dom          # look for DUPLICATES — the #1 cause of "Invalid hook call"
 
-## Are you on a legacy root? This decides whether you get React 18 semantics AT ALL:
+# Are you on a legacy root? This decides whether you get React 18 semantics AT ALL:
 grep -rn "ReactDOM.render\|ReactDOM.hydrate\|react-dom/client" src/
 
-## Modern JSX transform? (a hard requirement for 19)
+# Modern JSX transform? (a hard requirement for 19)
 grep -rn "\"jsx\"" tsconfig.json          # want "react-jsx", not "react"
 
-## The 19 landmines, in order of how much they hurt:
+# The 19 landmines, in order of how much they hurt:
 grep -rn "defaultProps" src/ node_modules/*/dist 2>/dev/null   # yes, node_modules too
 grep -rn 'ref="' src/                     # string refs
 grep -rn "contextTypes\|getChildContext"  # legacy context
