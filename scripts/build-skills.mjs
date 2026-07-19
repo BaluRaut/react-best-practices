@@ -146,6 +146,12 @@ const SKILLS = [
     description:
       'Use when deciding whether a version/library/performance claim is trustworthy, or before asserting one: verify against the npm registry and primary sources, run it instead of recalling it, and distinguish announced from shipped and deprecated from removed. Includes field-verified findings that corrected common folklore.',
   },
+  {
+    name: 'frontend-security',
+    src: 'security',
+    description:
+      'Use when handling auth or security in a React/front-end app: where to store tokens (HttpOnly cookies vs localStorage and the XSS risk), role-based vs permission-based authorization, protecting routes, sanitizing user content and the dangerouslySetInnerHTML trap, CSRF, and the OWASP client-side risks.',
+  },
 ]
 
 const MAX_DESCRIPTION = 1024 // open-standard limit

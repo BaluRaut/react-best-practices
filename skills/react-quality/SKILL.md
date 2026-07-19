@@ -428,6 +428,20 @@ Two gotchas:
 - `loading="lazy"` for below-the-fold images, but **never on the LCP image** — you would delay the
   exact thing INP/LCP measure. Use `fetchpriority="high"` on the LCP image instead.
 - Always set `width`/`height` (or `aspect-ratio`). Missing dimensions are the #1 cause of CLS.
+- **Serve modern formats.** AVIF/WebP are a fraction of the bytes of the same JPEG/PNG; deliver them with
+  a `<picture>` fallback so old browsers still get something:
+
+```html
+<picture>
+  <source srcset="hero.avif" type="image/avif" />
+  <source srcset="hero.webp" type="image/webp" />
+  <img src="hero.jpg" width="1200" height="630" alt="…" fetchpriority="high" />
+</picture>
+```
+
+- **Serve the right *size* per device** with `srcset` + `sizes`, so a phone doesn't download a 1600px
+  image: `<img srcset="s.jpg 640w, m.jpg 1024w, l.jpg 1600w" sizes="(max-width: 700px) 100vw, 50vw" …>`.
+  Images are usually the largest bytes on a page — this often beats any JS optimization on LCP.
 
 > 🔴 **Gotcha** — `loading="lazy"` is a 🟢 default for below-the-fold images but a footgun on the LCP
 > image: the one blanket "lazy-load all images" rule actively worsens the metric it looks like it

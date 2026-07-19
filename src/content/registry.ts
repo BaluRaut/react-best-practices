@@ -262,6 +262,15 @@ export const DOCS: Doc[] = [
     tags: ['data-fetching', 'tanstack-query', 'api-layer', 'caching'],
     skill: 'react-data-layer',
   },
+  {
+    slug: 'security',
+    title: 'Front-End Security',
+    blurb:
+      'What a front end actually owns: where auth tokens go (HttpOnly cookies, not localStorage), role- vs permission-based authorization, protecting routes, XSS and the dangerouslySetInnerHTML trap, and the OWASP client-side risks.',
+    section: 'architecture',
+    tags: ['security', 'auth', 'authorization', 'xss', 'tokens'],
+    skill: 'frontend-security',
+  },
 
   // ── Meta ─────────────────────────────────────────────────────────────────────
   {

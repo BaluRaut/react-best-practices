@@ -24,12 +24,40 @@ Before anything else, one distinction decides half your architecture:
   this ladder. It goes to React Query / SWR / an RSC framework loader. See the [Data Layer](data-layer)
   page. Putting server data in `useState` means hand-reimplementing caching, dedup, revalidation, and
   race handling — badly.
-- **Client state** — data owned by *this UI* and authoritative here (form drafts, which modal is
-  open, selected filters, a wizard's current step). This is what the ladder below is for.
+- **Client state** — data owned by *this UI* and authoritative here (which modal is open, a wizard's
+  current step, a hover). This is what the ladder below is for.
+- **URL state** — anything a user should be able to bookmark, share, or reload into: the current
+  filters, the search query, the active tab, the page number. This belongs in the address bar
+  (`useSearchParams`), **not** `useState`. See below.
+- **Form state** — a form's draft values, dirty/touched flags, and validation. It has its own tools
+  (React Hook Form + Zod); see the [Forms](forms) page. Don't lift every keystroke into global state.
 
-> 🟢 **Best practice** — classify every piece of state as *server* or *client* before deciding where
-> it lives. Server state on this ladder is the root cause of most "React is slow / my data is stale"
-> complaints.
+> 🟢 **Best practice** — classify every piece of state as *server*, *client*, *URL*, or *form* before
+> deciding where it lives. The two most common mistakes are putting **server** data in `useState` (the
+> root of most "React is slow / my data is stale" complaints) and putting **URL** state there (the root
+> of "I can't share a link to this filtered view").
+
+### URL state — the category everyone forgets
+
+If losing a value on refresh would annoy the user, or they'd reasonably want to share a link to it, it
+is URL state. Filters, sort order, the open tab, pagination, a search term — all of it. Storing these in
+`useState` makes them un-bookmarkable, un-shareable, and gone on reload.
+
+```tsx
+// 🔴 The filter is trapped in the component; refresh loses it, and you can't share the view.
+const [status, setStatus] = useState('open')
+
+// 🟢 The URL is the source of truth: bookmarkable, shareable, survives reload, back-button works.
+import { useSearchParams } from 'react-router-dom'
+const [params, setParams] = useSearchParams()
+const status = params.get('status') ?? 'open'
+const setStatus = (s: string) => setParams((p) => { p.set('status', s); return p }, { replace: true })
+```
+
+> 🟡 **Optimization** — use `{ replace: true }` for high-frequency updates (typing in a search box) so
+> you don't push a history entry per keystroke and break the back button. **When NOT to use URL state:**
+> ephemeral, non-shareable UI (a dropdown's open/closed, a hover) — that's plain client state; putting it
+> in the URL just makes ugly links. The test is "would a user want to bookmark or share this?"
 
 ---
 

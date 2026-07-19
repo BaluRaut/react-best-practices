@@ -228,6 +228,26 @@ is the sum. A 2.7× win, and it grows with the number of independent requests.
 > ones and sequence only the genuine dependencies. When you find yourself with a chain of dependent
 > requests, that chain is a *waterfall* — the thing route loaders (below) exist to flatten.
 
+### Prefetch the next screen before the user asks
+
+The fastest request is the one already in cache when the component mounts. TanStack Query's
+`prefetchQuery` lets you warm the cache on intent — a link hover, a route about to transition — so the
+data is there by the time the screen renders.
+
+```tsx
+// 🟢 On hover, start fetching the detail data; by the time the click navigates, it's cached.
+const queryClient = useQueryClient()
+function onHover(id: string) {
+  queryClient.prefetchQuery({ queryKey: ['product', id], queryFn: () => getProduct(id) })
+}
+<Link to={`/products/${id}`} onMouseEnter={() => onHover(id)}>{name}</Link>
+```
+
+> 🟡 **Optimization** — prefetch on a *strong* intent signal (link hover, a wizard's next step, a
+> visible-but-not-yet-clicked row), not indiscriminately. **When NOT to:** prefetching everything on a
+> list of 500 rows fires 500 requests and melts the server — the opposite of the waterfall problem, but
+> just as real. Prefetch what the user is likely to reach next, not everything they *could*.
+
 ---
 
 ## Raw `useEffect` fetching is fragile

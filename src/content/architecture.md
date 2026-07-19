@@ -110,6 +110,41 @@ Enforce it mechanically — `eslint-plugin-boundaries` (7.0.2) or ESLint's built
 `import/no-restricted-paths`. Unenforced, this convention decays within a quarter: the first person
 in a hurry deep-imports, code review misses it, and the boundary is gone.
 
+### Make the dependency graph flow one way
+
+The deeper rule (bulletproof-react's core contribution) is that imports point in **one direction
+only**: `shared → features → app`. The app composes features; features use shared primitives; nothing
+points back up. `shared/` never imports a feature, and a feature never imports from `app/`. A
+one-directional graph has no import cycles, and you can reason about any layer without loading the ones
+above it.
+
+```
+app/        ← composes features into routes; may import features + shared
+  ↑ (imports downward only)
+features/   ← self-contained; may import shared; NEVER app, NEVER a sibling's internals
+  ↑
+shared/     ← components, hooks, lib, utils, types; imports NOTHING app- or feature-specific
+```
+
+```js
+// eslint.config — import/no-restricted-paths, the enforceable form of the arrows above
+'import/no-restricted-paths': ['error', {
+  zones: [
+    // features and app may NOT be imported by shared
+    { target: './src/{components,hooks,lib,utils,types}', from: './src/{features,app}' },
+    // app may NOT be imported by features (features sit below app)
+    { target: './src/features', from: './src/app' },
+    // features may not import each other's internals (pair with the public-entry rule)
+    { target: './src/features/checkout', from: './src/features', except: ['./checkout'] },
+  ],
+}]
+```
+
+> 🟢 **Best practice** — encode the layering as `import/no-restricted-paths` zones and let CI fail the
+> build on a violation. The rule you can't lint is the rule you don't have; a diagram in a wiki does not
+> stop the 4pm deep-import. This is [Dependency Inversion](design-principles#dependency-inversion-depend-on-abstractions-not-concretions)
+> at the folder level — high layers depend on low ones, never the reverse.
+
 **Pros / Cons — feature-based layout**
 
 | Pros | Cons |
@@ -242,6 +277,23 @@ above.
 > Different problem (dev-time crawl), different fix — not a production-bundle rule in v9.
 
 ---
+
+## Conventions worth lint-enforcing
+
+Two smaller standards that pay off once a second person joins:
+
+- **Kebab-case file and folder names**, enforced (`eslint-plugin-check-file`:
+  `filename-naming-convention` / `folder-naming-convention`). Mixed `UserCard.tsx` / `user-card.tsx`
+  casing causes phantom git conflicts on case-insensitive filesystems (macOS, Windows) that vanish on
+  Linux CI — a genuinely maddening bug class. Pick one case and lint it.
+- **Wrap third-party components at a boundary.** Import a UI library's `<Button>` through your own
+  `<Button>` (and your API client through your own module — see [Dependency Inversion](design-principles#dependency-inversion-depend-on-abstractions-not-concretions)).
+  When the library ships a breaking change or you swap it, you edit one adapter, not 300 call sites. Do
+  this for the components you use *everywhere*; wrapping a one-off is just indirection.
+
+> 🟡 **Optimization** — a [Storybook](https://storybook.js.org/) catalogue is worth it for a real design
+> system or a team building shared components in isolation. **When NOT to:** it's real setup and
+> maintenance; a small app with no shared-component library doesn't need it. Don't add it on day one.
 
 ## Putting it together
 
