@@ -362,6 +362,8 @@ import { Button, DatePicker, Table } from 'antd';
 > 🟡 **Optimization** — icons are a real bundle line-item. Import icons by name
 > (`import { SearchOutlined } from '@ant-design/icons'`), never a namespace/barrel import, and audit
 > your icon usage — `@ant-design/icons` is large, and a stray `import * as Icons` pulls the whole set.
+> **When not to worry about it:** a handful of named icon imports tree-shake fine; this only matters once
+> you're importing dozens or someone reaches for the namespace form.
 
 ---
 

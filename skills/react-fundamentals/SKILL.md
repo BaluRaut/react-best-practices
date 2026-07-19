@@ -17,6 +17,10 @@ is now a performance feature and not just an ideal.
 Verified against React 19.2.7. The mechanisms here are stable across React 17–19; where a version
 matters, it is called out.
 
+Unlike the rest of the site, this page has no "when not to" — these aren't guidelines you weigh against
+trade-offs, they're *how React actually works*. Everything else here is advice you apply with judgment;
+this is the machine the judgment reasons about. Get these five right and most other pages become obvious.
+
 Every recommendation is tagged so you can tell a **rule** from an **optimization**:
 
 > 🟢 **Best practice** — do this by default; it's a correctness/maintainability rule.
