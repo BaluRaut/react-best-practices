@@ -11,7 +11,9 @@
     "skills": "node scripts/build-skills.mjs",
     "skills:install": "node scripts/build-skills.mjs --install",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "skills:tech": "node scripts/build-tech-skills.mjs",
+    "skills:tech:install": "node scripts/build-tech-skills.mjs --install"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
