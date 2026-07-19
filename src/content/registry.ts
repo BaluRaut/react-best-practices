@@ -116,6 +116,15 @@ export const DOCS: Doc[] = [
     tags: ['solid', 'composition', 'polymorphism', 'patterns', 'architecture'],
     skill: 'frontend-design-principles',
   },
+  {
+    slug: 'error-handling',
+    title: 'Error Handling (JS/TS)',
+    blurb:
+      'The staff-level discipline no feature page covers: throw vs Result, typed errors, exhaustive handling, Error.isError and cause, retries and timeouts with AbortSignal, and where errors belong in a React app.',
+    section: 'foundations',
+    tags: ['errors', 'result-type', 'exceptions', 'resilience', 'typescript'],
+    skill: 'js-ts-error-handling',
+  },
 
   // ── Versions ─────────────────────────────────────────────────────────────────
   {
@@ -262,6 +271,15 @@ export const DOCS: Doc[] = [
       'How every page here compiles into an Agent Skill, what the SKILL.md spec actually requires, and how to install them.',
     section: 'meta',
     tags: ['claude', 'agent-skills', 'skill-md'],
+  },
+  {
+    slug: 'method',
+    title: 'How This Stays Honest',
+    blurb:
+      'The method behind every page: verify versions against the registry, run it instead of recalling it, and treat announced≠shipped. Plus the field-verified findings that corrected the folklore — the transferable part.',
+    section: 'meta',
+    tags: ['methodology', 'verification', 'measured', 'findings'],
+    skill: 'verified-method',
   },
 ]
 

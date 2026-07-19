@@ -134,6 +134,18 @@ const SKILLS = [
     description:
       'Use when building UI with Ant Design (antd) v5: the CSS-in-JS design-token system, ConfigProvider theming, dark and compact algorithms, the static-method context pitfall (message/notification/Modal), and tree-shaking. Targets antd 5.29.x.',
   },
+  {
+    name: 'js-ts-error-handling',
+    src: 'error-handling',
+    description:
+      'Use when handling errors in JavaScript or TypeScript: choosing throw vs a Result type, defining typed errors, exhaustive error handling, Error cause and Error.isError, retries and timeouts with AbortSignal, and where errors belong in a React app.',
+  },
+  {
+    name: 'verified-method',
+    src: 'method',
+    description:
+      'Use when deciding whether a version/library/performance claim is trustworthy, or before asserting one: verify against the npm registry and primary sources, run it instead of recalling it, and distinguish announced from shipped and deprecated from removed. Includes field-verified findings that corrected common folklore.',
+  },
 ]
 
 const MAX_DESCRIPTION = 1024 // open-standard limit

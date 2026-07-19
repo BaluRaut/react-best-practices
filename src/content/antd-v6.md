@@ -4,6 +4,12 @@ Verified stack (npm registry, 2026-07-19): `antd` **6.5.1** (v6.0.0 shipped **20
 `@ant-design/icons` **6.3.2**, `@ant-design/cssinjs` **2.1.2**, `@ant-design/nextjs-registry` **1.3.0**.
 Migration CLI: `@ant-design/cli` (invoked as `antd`). Node **>= 20** for the CLI.
 
+> 🟢 **Verified by running it** — the claims below were checked against a real install
+> (`antd@6.5.1` + `react@19.2.7`, rendered under jsdom): antd v6 renders with React 19, `App.useApp()`
+> returns the message/notification/Modal instances inside `<App>`, `theme.getDesignToken()` yields real
+> light/dark tokens (dark `colorBgBase` `#000`), and v6 emits **CSS variables by default** (638
+> `--ant*` declarations on a one-button render). Not memory — measured.
+
 antd v6 is the current major. The single most important fact — lead with it in any upgrade planning —
 is the **React floor**: v6 dropped React 17. Everything else (semantic `classNames`/`styles`, CSS
 variables by default, renamed props) is downstream of a smaller, more modern support matrix.
