@@ -125,6 +125,15 @@ export const DOCS: Doc[] = [
     tags: ['errors', 'result-type', 'exceptions', 'resilience', 'typescript'],
     skill: 'js-ts-error-handling',
   },
+  {
+    slug: 'conventions',
+    title: 'Naming & Code Conventions',
+    blurb:
+      'The rules the Google and Airbnb style guides agree on: identifier casing, abbreviations-as-words, named vs default exports, import ordering, and the daily-driver code-style calls (no param mutation, no nested ternaries, Map over object-as-dictionary).',
+    section: 'foundations',
+    tags: ['naming', 'conventions', 'style', 'exports', 'imports'],
+    skill: 'code-conventions',
+  },
 
   // ── Versions ─────────────────────────────────────────────────────────────────
   {

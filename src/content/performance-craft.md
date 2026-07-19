@@ -207,6 +207,51 @@ grows with the number of requests.
 
 ---
 
+## Beyond JS: browser rendering wins
+
+Some of the biggest perceived-performance wins aren't in your JavaScript at all — they're telling the
+browser what to prioritize. These are cheap and high-leverage.
+
+**Resource hints** start critical work earlier. `preconnect` opens the TCP+TLS handshake to an origin
+before you need it; `preload` fetches a resource the current page will definitely use; `dns-prefetch` is
+the cheap fallback for origins you *might* hit.
+
+```html
+<!-- 🟢 warm the connection to your API/font/CDN origin during idle head-parse time -->
+<link rel="preconnect" href="https://api.example.com" crossorigin />
+<!-- 🟢 fetch the LCP hero image / critical font now, not when the CSS finally references it -->
+<link rel="preload" as="image" href="/hero.avif" fetchpriority="high" />
+```
+
+> 🟡 **Optimization** — `preconnect` the 2–4 origins on your critical path (API, fonts, image CDN) and
+> `preload` the LCP resource. **When NOT to:** preconnecting to a dozen origins wastes connections and can
+> *slow* the page — the browser has a limited connection budget. Hint the few that are on the critical
+> path, not everything.
+
+**Passive event listeners** unblock scrolling. By default the browser must wait to see whether a
+`touchstart`/`wheel` handler calls `preventDefault` before it can scroll — janking the scroll. Marking the
+listener `passive` promises you won't, so the browser scrolls immediately.
+
+```ts
+// 🟢 a scroll/touch handler that never preventDefaults should say so — smoother scrolling
+el.addEventListener('touchstart', onTouch, { passive: true })
+```
+
+**`content-visibility: auto`** skips rendering (layout + paint) for off-screen subtrees until they scroll
+near the viewport — a large win for long pages with many heavy sections. Pair it with
+`contain-intrinsic-size` so the scrollbar doesn't jump.
+
+**`requestIdleCallback`** defers genuinely non-urgent work (analytics beacons, prefetching, warming a
+cache) to the browser's idle time, so it never competes with a user interaction for the main thread.
+
+> 🔴 **Advanced / gotcha** — `requestIdleCallback` is for work that can wait *indefinitely* — it may not
+> fire for seconds under load, and isn't for anything the user is waiting on. Also don't reach for
+> `content-visibility` on above-the-fold content (you'd delay the paint you want) or on tiny elements (the
+> containment bookkeeping isn't worth it). Each of these is a scalpel, not a default — measure the page
+> first, the same as everything else here.
+
+---
+
 ## TypeScript's performance story
 
 TypeScript types are **erased at compile time** — they emit zero JavaScript and have **zero runtime

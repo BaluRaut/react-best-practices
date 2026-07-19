@@ -152,6 +152,12 @@ const SKILLS = [
     description:
       'Use when handling auth or security in a React/front-end app: where to store tokens (HttpOnly cookies vs localStorage and the XSS risk), role-based vs permission-based authorization, protecting routes, sanitizing user content and the dangerouslySetInnerHTML trap, CSRF, and the OWASP client-side risks.',
   },
+  {
+    name: 'code-conventions',
+    src: 'conventions',
+    description:
+      'Use when naming things or choosing code style in JavaScript/TypeScript: identifier casing (camelCase/PascalCase/CONSTANT_CASE), abbreviations as words, named vs default exports, import ordering, and daily calls like no parameter mutation, no nested ternaries, and Map over object-as-dictionary. Based on the Google and Airbnb style guides.',
+  },
 ]
 
 const MAX_DESCRIPTION = 1024 // open-standard limit

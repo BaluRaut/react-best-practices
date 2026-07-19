@@ -407,6 +407,42 @@ lie**. The bug it creates always surfaces far from where it was written. Legitim
 > overruling it twice. Reach for it knowingly and rarely; in review, treat it as requiring a written
 > justification.
 
+### The non-null assertion `!` is `as` in disguise
+
+`value!` tells the compiler "trust me, this isn't null/undefined" and erases the check. It's the same
+override as `as`, just shorter — and just as capable of shipping a `Cannot read properties of undefined`
+to production, because it removes the type-level warning without adding a runtime guard.
+
+```ts
+// 🔴 the ! silences the compiler; if the element isn't there, this throws at runtime
+const root = document.getElementById('root')!
+createRoot(root).render(<App />)
+
+// 🟢 handle the null — the failure becomes an explicit, debuggable error instead of a stack trace
+const root = document.getElementById('root')
+if (!root) throw new Error('#root missing from index.html')
+createRoot(root).render(<App />)
+```
+
+> 🔴 **Advanced / gotcha** — every `!` is a place you promised the compiler something it couldn't verify.
+> A few are genuinely justified (a value you set one line earlier, a test fixture), but a `!` on anything
+> that crosses an I/O boundary — DOM queries, API responses, `Map.get()` — is a latent crash. Prefer a
+> guard, `??`, or optional chaining. Turn on `@typescript-eslint/no-non-null-assertion` so each one has to
+> be a deliberate, commented exception rather than a reflex.
+
+### `#private` vs the `private` keyword
+
+TypeScript's `private` is a **compile-time** fiction — it's erased, and the field is fully readable at
+runtime (`obj['secret']` works). ECMAScript's `#private` is **real runtime privacy** — genuinely
+inaccessible from outside the class.
+
+> 🟡 **Optimization** — use `#private` when you need actual encapsulation (hiding a field from consumers
+> of a shipped library, or from code that might poke at internals). Use the `private` keyword when you
+> only want type-level discouragement within your own codebase and value the slightly cleaner syntax.
+> **When it doesn't matter:** in React you rarely write classes at all, so this is mostly a library-author
+> concern. (Older style guides that predate broad `#` support say "always use `private`"; that advice is
+> now a tradeoff, not a rule.)
+
 ---
 
 ## `unknown` over `any` at every boundary
