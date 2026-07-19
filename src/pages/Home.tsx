@@ -30,9 +30,9 @@ export function Home() {
           Frontend best practices that are actually current
         </Typography>
         <Typography sx={{ color: 'text.secondary', fontSize: '1.1rem', maxWidth: 680, mb: 2 }}>
-          Write cleaner, faster, more maintainable frontend code. Modern JavaScript, TypeScript, and
-          React — taught through runnable bad-vs-good examples that explain not just <em>what</em> to
-          do but <em>why</em>.
+          Write cleaner, faster, more maintainable frontend code. A curated, verified reference for
+          modern JavaScript, TypeScript, and React — taught through runnable bad-vs-good examples that
+          explain not just <em>what</em> to do but <em>why</em>.
         </Typography>
         <Typography sx={{ color: 'text.secondary', fontSize: '0.98rem', maxWidth: 680, mb: 3 }}>
           Plus the full React 16 → 19 migration matrix. Every version claim was checked against primary
