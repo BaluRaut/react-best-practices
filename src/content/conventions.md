@@ -145,9 +145,44 @@ ones); on an array that's indices, not values, and it's a classic bug. Use `for.
 > your review attention belongs on naming and export shape (which tools can't judge), not on catching
 > a stray nested ternary a linter would flag anyway.
 
+## Commit messages
+
+Code conventions don't stop at the code — the git history is documentation too, and **Conventional
+Commits** is the widely-adopted format that makes it machine-readable: `type(scope): summary`.
+
+```bash
+# 🟢 conventional commits — a parseable type, an optional scope, an imperative summary
+feat(auth): add password-reset flow
+fix(cart): stop total from going negative on coupon stacking
+refactor(api): extract the retry logic into a shared client
+docs: correct the install command in the readme
+
+# 🔴 the history nobody can read or automate against
+git commit -m "stuff"
+git commit -m "fixes"
+git commit -m "WIP asdf"
+```
+
+The common `type`s: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `build`, `ci`. A `feat`
+or `fix` is what shows up in a changelog; a `!` after the type (or a `BREAKING CHANGE:` footer) marks a
+breaking change.
+
+> 🟢 **Best practice** — write the summary in the **imperative mood** ("add", "fix", not "added" /
+> "fixes"), lowercase, no trailing period, and keep it under ~72 characters — it should complete the
+> sentence "this commit will _______". The payoff is concrete: automated changelogs and semver bumps
+> (`semantic-release`), a `git log` you can actually scan, and reviewers who know a commit's intent
+> before opening the diff.
+
+> 🟡 **Optimization** — enforce it mechanically with **commitlint** + a Husky `commit-msg` hook, so a
+> malformed message is rejected at commit time rather than caught in review. **When NOT to bother:** a
+> solo throwaway prototype doesn't need the ceremony; adopt it once more than one person reads the
+> history or you want automated releases. And never let the *format* become a reason to bundle unrelated
+> changes into one commit — small, focused commits matter more than perfect prefixes.
+
 ## Sources
 
 - [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html) · [Google JavaScript Style Guide](https://google.github.io/styleguide/jsguide.html)
 - [Airbnb JavaScript Style Guide](https://github.com/airbnb/javascript)
 - [eslint-plugin-import — import/order](https://github.com/import-js/eslint-plugin-import/blob/main/docs/rules/order.md)
+- [Conventional Commits](https://www.conventionalcommits.org/) · [commitlint](https://commitlint.js.org/)
 - Formatting itself: [Prettier](https://prettier.io/) / [Biome](https://biomejs.dev/) — let the tool decide, don't debate it.
