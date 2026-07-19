@@ -6,7 +6,7 @@ const LABELS = [
   {
     emoji: '🟢',
     name: 'Best practice',
-    blurb: 'Do this by default. A correctness or maintainability rule, not a matter of taste.',
+    blurb: 'Preferred by default — a correctness or maintainability guideline that holds in most contexts.',
     color: 'success.main',
   },
   {
@@ -63,6 +63,10 @@ export function LabelLegend() {
           </Stack>
         ))}
       </Stack>
+      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 1.5, fontStyle: 'italic' }}>
+        These are guidelines and trade-offs, not immutable laws — context decides. Every optimization
+        below says when <em>not</em> to use it.
+      </Typography>
     </Box>
   )
 }

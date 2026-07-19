@@ -29,10 +29,15 @@ export function Home() {
         <Typography variant="h1" sx={{ mb: 2, fontSize: { xs: '2.1rem', md: '3rem' } }}>
           Frontend best practices that are actually current
         </Typography>
-        <Typography sx={{ color: 'text.secondary', fontSize: '1.1rem', maxWidth: 680, mb: 3 }}>
-          A reference for React, TypeScript and JavaScript — plus the full React 16 → 19 migration
-          matrix. Every version claim here was checked against primary sources or measured on a real
-          install, because most advice on this subject is quietly out of date.
+        <Typography sx={{ color: 'text.secondary', fontSize: '1.1rem', maxWidth: 680, mb: 2 }}>
+          Write cleaner, faster, more maintainable frontend code. Modern JavaScript, TypeScript, and
+          React — taught through runnable bad-vs-good examples that explain not just <em>what</em> to
+          do but <em>why</em>.
+        </Typography>
+        <Typography sx={{ color: 'text.secondary', fontSize: '0.98rem', maxWidth: 680, mb: 3 }}>
+          Plus the full React 16 → 19 migration matrix. Every version claim was checked against primary
+          sources or measured on a real install — because most advice on this subject is quietly out of
+          date. These are guidelines and trade-offs, not laws: each one says when <em>not</em> to use it.
         </Typography>
 
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mb: 4 }}>
