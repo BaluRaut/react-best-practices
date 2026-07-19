@@ -2,7 +2,7 @@
 name: js-ts-performance
 description: "Use when optimizing JavaScript or TypeScript performance, choosing a loop, or benchmarking: how to micro-benchmark without lying to yourself, the measured truth about for/while/forEach/map, hot-path idioms (object shapes, array holes, allocation), and which classic perf rules are now obsolete. Measure, do not guess."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/performance-craft
+  source: https://baluraut.github.io/frontend-best-practices/performance-craft
 ---
 
 # Performance Craft (JavaScript & TypeScript)

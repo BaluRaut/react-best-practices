@@ -1,5 +1,5 @@
 {
-  "name": "react-best-practices",
+  "name": "frontend-best-practices",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -43,6 +43,6 @@
     "vite": "^8.1.1",
     "vitest": "^4.1.10"
   },
-  "homepage": "https://baluraut.github.io/react-best-practices/",
+  "homepage": "https://baluraut.github.io/frontend-best-practices/",
   "license": "MIT"
 }

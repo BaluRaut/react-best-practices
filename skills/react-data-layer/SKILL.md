@@ -2,7 +2,7 @@
 name: react-data-layer
 description: "Use when fetching or caching server data in React: structuring the API layer, TanStack Query, request cancellation, and sequential vs parallel fetching. Treats server data as a cache, not state."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/data-layer
+  source: https://baluraut.github.io/frontend-best-practices/data-layer
 ---
 
 # The Data Layer

@@ -2,7 +2,7 @@
 name: react-custom-hooks
 description: "Use when designing or reviewing a custom React hook: naming, return shapes, composition, when to extract, and advanced ref/latest patterns (which are advanced, not defaults)."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/custom-hooks
+  source: https://baluraut.github.io/frontend-best-practices/custom-hooks
 ---
 
 # Custom Hooks

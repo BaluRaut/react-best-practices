@@ -2,7 +2,7 @@
 name: react-architecture
 description: "Use when structuring a React codebase: feature-based vs layer-based folders, colocation, and the measured cost of barrel files. For laying out a project so it survives growth."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/architecture
+  source: https://baluraut.github.io/frontend-best-practices/architecture
 ---
 
 # Architecture: folders, colocation, and barrels

@@ -2,7 +2,7 @@
 name: typescript-practices
 description: "Use when writing TypeScript or configuring tsconfig in the TypeScript 6/7 era: strictness flags, satisfies vs as, unions over enums, module resolution. Corrects advice that predates the flipped TS 6/7 defaults and the Go port."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/ts-general
+  source: https://baluraut.github.io/frontend-best-practices/ts-general
 ---
 
 # TypeScript in the TS 6/7 Era

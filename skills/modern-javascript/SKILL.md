@@ -2,7 +2,7 @@
 name: modern-javascript
 description: "Use when writing modern JavaScript: immutable array methods, structuredClone, AbortSignal cancellation, Object.groupBy, promise combinators, and error handling. Flags the nullish-coalescing vs OR bug and what is actually Baseline-available."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/js-general
+  source: https://baluraut.github.io/frontend-best-practices/js-general
 ---
 
 # Modern JavaScript for React Apps (ES2020 → mid-2026)

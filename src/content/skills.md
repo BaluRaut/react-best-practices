@@ -113,7 +113,7 @@ This repo uses `metadata` to carry the source URL, staying inside the open stand
 name: react-practices
 description: "Use when writing or reviewing React components and hooks: deciding whether a useEffect is needed, placing state, using keys..."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/react-practices
+  source: https://baluraut.github.io/frontend-best-practices/react-practices
 ---
 ```
 

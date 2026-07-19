@@ -7,8 +7,17 @@ import Stack from '@mui/material/Stack'
 
 import { LabelLegend } from '../components/LabelLegend'
 import { Markdown } from '../components/Markdown'
-import { APPLIES_TO, DOCS_BY_SLUG, loadBody } from '../content/registry'
+import { APPLIES_TO, DOCS_BY_SLUG, LEVEL, loadBody } from '../content/registry'
 import { NotFound } from './NotFound'
+
+// Cool tones on purpose: the level axis must not read as the warm 🟢🟡🔴 kind-labels
+// used in the callouts. These are blue → indigo → violet, a difficulty ramp, not a
+// good/caution/danger signal.
+const LEVEL_COLOR: Record<string, string> = {
+  Beginner: '#2563eb',
+  Intermediate: '#6366f1',
+  Advanced: '#8b5cf6',
+}
 
 export function DocPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -31,27 +40,44 @@ export function DocPage() {
   if (!doc) return <NotFound />
 
   const appliesTo = slug ? (APPLIES_TO[slug] ?? []) : []
+  const level = slug ? LEVEL[slug] : undefined
 
   return (
     <Box>
-      {appliesTo.length > 0 && (
+      {(level || appliesTo.length > 0) && (
         <Stack
           direction="row"
           spacing={0.75}
           sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}
         >
-          <Box
-            component="span"
-            sx={{
-              fontSize: '0.66rem',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'text.secondary',
-            }}
-          >
-            Applies to
-          </Box>
+          {level && (
+            <Chip
+              label={level}
+              size="small"
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                height: 22,
+                color: '#fff',
+                bgcolor: LEVEL_COLOR[level],
+              }}
+            />
+          )}
+          {appliesTo.length > 0 && (
+            <Box
+              component="span"
+              sx={{
+                fontSize: '0.66rem',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'text.secondary',
+                ml: level ? 0.5 : 0,
+              }}
+            >
+              Applies to
+            </Box>
+          )}
           {appliesTo.map((v) => (
             <Chip
               key={v}

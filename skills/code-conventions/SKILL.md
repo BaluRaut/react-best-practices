@@ -2,7 +2,7 @@
 name: code-conventions
 description: "Use when naming things or choosing code style in JavaScript/TypeScript: identifier casing (camelCase/PascalCase/CONSTANT_CASE), abbreviations as words, named vs default exports, import ordering, and daily calls like no parameter mutation, no nested ternaries, and Map over object-as-dictionary. Based on the Google and Airbnb style guides."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/conventions
+  source: https://baluraut.github.io/frontend-best-practices/conventions
 ---
 
 # Naming & Code Conventions

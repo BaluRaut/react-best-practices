@@ -2,7 +2,7 @@
 name: frontend-design-principles
 description: "Use when structuring React components, hooks, or component APIs: SOLID applied to the front end, composition over configuration, polymorphism (the as prop, compound components, render props), and data-driven over conditional rendering. Follow these patterns instead of guessing at component design."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/design-principles
+  source: https://baluraut.github.io/frontend-best-practices/design-principles
 ---
 
 # Design Principles for React

@@ -2,7 +2,7 @@
 name: react-state-management
 description: "Use when deciding where React state should live: local, lifted, Context, or an external store (Zustand, Redux, Jotai). A decision guide with the measured cost of un-split Context re-renders."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/state-management
+  source: https://baluraut.github.io/frontend-best-practices/state-management
 ---
 
 # Where State Should Live

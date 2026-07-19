@@ -23,7 +23,7 @@ import { useColorScheme } from '@mui/material/styles'
 import { DOCS, SECTIONS, type Section } from '../content/registry'
 
 const DRAWER_WIDTH = 280
-const REPO = 'https://github.com/BaluRaut/react-best-practices'
+const REPO = 'https://github.com/BaluRaut/frontend-best-practices'
 
 function ColorModeToggle() {
   const { mode, setMode } = useColorScheme()
@@ -138,7 +138,7 @@ export function Layout() {
               flexGrow: 1,
             }}
           >
-            React Best Practices
+            Frontend Best Practices
           </Typography>
           <ColorModeToggle />
           <IconButton href={REPO} target="_blank" rel="noopener" aria-label="View source on GitHub" color="inherit">

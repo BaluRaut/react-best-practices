@@ -2,7 +2,7 @@
 name: react-practices
 description: "Use when writing or reviewing React components and hooks: deciding whether a useEffect is needed, placing state, using keys, composing components, or configuring the React Compiler and manual memoization. Encodes react.dev guidance and the current (mature) React Compiler behaviour."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/react-practices
+  source: https://baluraut.github.io/frontend-best-practices/react-practices
 ---
 
 # React Practices

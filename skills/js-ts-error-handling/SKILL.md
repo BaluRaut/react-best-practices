@@ -2,7 +2,7 @@
 name: js-ts-error-handling
 description: "Use when handling errors in JavaScript or TypeScript: choosing throw vs a Result type, defining typed errors, exhaustive error handling, Error cause and Error.isError, retries and timeouts with AbortSignal, and where errors belong in a React app."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/error-handling
+  source: https://baluraut.github.io/frontend-best-practices/error-handling
 ---
 
 # Error Handling (JS/TS)

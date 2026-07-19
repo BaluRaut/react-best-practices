@@ -2,7 +2,7 @@
 name: react-migration
 description: "Use when upgrading a React codebase across major versions (16, 17, 18, or 19), when you hit a React upgrade error, or when choosing a codemod for a React migration. Covers the hop-by-hop breaking changes, the literal error messages, the exact codemod commands, and rollback risk."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/migration-matrix
+  source: https://baluraut.github.io/frontend-best-practices/migration-matrix
 ---
 
 # The React 16 → 19 Migration Matrix

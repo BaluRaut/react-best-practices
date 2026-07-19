@@ -2,7 +2,7 @@
 name: react-quality
 description: "Use when testing React (Vitest + React Testing Library), fixing accessibility (focus management on route change, roles, labels), improving performance (INP, bundle size, code splitting), or choosing linters and project structure for a React SPA."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/quality
+  source: https://baluraut.github.io/frontend-best-practices/quality
 ---
 
 # Quality: Testing, Accessibility, Performance, Tooling, Structure

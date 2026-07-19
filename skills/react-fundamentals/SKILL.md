@@ -2,7 +2,7 @@
 name: react-fundamentals
 description: "Use when a React bug or decision needs the underlying model: render vs commit, reconciliation and keys, stale closures, dependency arrays, or why render must be pure. Explains the why behind the rules other skills apply."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/fundamentals
+  source: https://baluraut.github.io/frontend-best-practices/fundamentals
 ---
 
 # React Fundamentals

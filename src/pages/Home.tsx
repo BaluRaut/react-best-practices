@@ -27,7 +27,7 @@ export function Home() {
       <Box sx={{ py: { xs: 2, md: 4 } }}>
         <Chip label="Verified against the registry, not from memory" size="small" sx={{ mb: 2 }} />
         <Typography variant="h1" sx={{ mb: 2, fontSize: { xs: '2.1rem', md: '3rem' } }}>
-          React best practices that are actually current
+          Frontend best practices that are actually current
         </Typography>
         <Typography sx={{ color: 'text.secondary', fontSize: '1.1rem', maxWidth: 680, mb: 3 }}>
           A reference for React, TypeScript and JavaScript — plus the full React 16 → 19 migration

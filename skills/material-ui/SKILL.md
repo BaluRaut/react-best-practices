@@ -2,7 +2,7 @@
 name: material-ui
 description: "Use when building UI with Material UI (MUI) v9, or migrating MUI from v5/v6/v7: theming, sx vs styled, dark mode with CSS variables and color schemes, and the migration codemods. Notes why MUI skipped v8 and why to build on Emotion, not Pigment CSS."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/mui
+  source: https://baluraut.github.io/frontend-best-practices/mui
 ---
 
 # Material UI v9 — Migration, Theming, and the Emotion Reality

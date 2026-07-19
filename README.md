@@ -1,10 +1,10 @@
-# React Best Practices
+# Frontend Best Practices
 
 A current, verified reference for **React, TypeScript, and JavaScript** — plus the full
 **React 16 → 19 migration matrix** — built with Material UI and deployed to GitHub Pages.
 Every page is also a **Claude Code skill**.
 
-**Live:** https://baluraut.github.io/react-best-practices/
+**Live:** https://baluraut.github.io/frontend-best-practices/
 
 ## Why this exists
 

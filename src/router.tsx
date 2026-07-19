@@ -22,7 +22,7 @@ const DocPage = lazy(() =>
 )
 
 // BASE_URL comes from vite.config.ts `base`, so the router and the asset URLs can
-// never disagree about where the app is mounted. Hard-coding '/react-best-practices/'
+// never disagree about where the app is mounted. Hard-coding '/frontend-best-practices/'
 // here would break `npm run dev`, which serves from '/'.
 export const router = createBrowserRouter(
   [

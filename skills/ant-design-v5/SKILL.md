@@ -2,7 +2,7 @@
 name: ant-design-v5
 description: "Use when building UI with Ant Design (antd) v5: the CSS-in-JS design-token system, ConfigProvider theming, dark and compact algorithms, the static-method context pitfall (message/notification/Modal), and tree-shaking. Targets antd 5.29.x."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/antd-v5
+  source: https://baluraut.github.io/frontend-best-practices/antd-v5
 ---
 
 # Ant Design v5 — Design Tokens, Theming, and the Static-Method Trap

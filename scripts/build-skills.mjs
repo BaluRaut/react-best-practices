@@ -171,7 +171,7 @@ function frontmatter({ name, description }) {
   }
   // description is single-line and quoted so a colon or '#' can't break the YAML.
   const desc = JSON.stringify(description)
-  return `---\nname: ${name}\ndescription: ${desc}\nmetadata:\n  source: https://baluraut.github.io/react-best-practices/${SKILLS.find((s) => s.name === name).src}\n---\n`
+  return `---\nname: ${name}\ndescription: ${desc}\nmetadata:\n  source: https://baluraut.github.io/frontend-best-practices/${SKILLS.find((s) => s.name === name).src}\n---\n`
 }
 
 function build() {

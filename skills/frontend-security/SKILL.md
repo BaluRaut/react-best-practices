@@ -2,7 +2,7 @@
 name: frontend-security
 description: "Use when handling auth or security in a React/front-end app: where to store tokens (HttpOnly cookies vs localStorage and the XSS risk), role-based vs permission-based authorization, protecting routes, sanitizing user content and the dangerouslySetInnerHTML trap, CSRF, and the OWASP client-side risks."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/security
+  source: https://baluraut.github.io/frontend-best-practices/security
 ---
 
 # Front-End Security

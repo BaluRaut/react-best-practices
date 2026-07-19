@@ -2,7 +2,7 @@
 name: verified-method
 description: "Use when deciding whether a version/library/performance claim is trustworthy, or before asserting one: verify against the npm registry and primary sources, run it instead of recalling it, and distinguish announced from shipped and deprecated from removed. Includes field-verified findings that corrected common folklore."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/method
+  source: https://baluraut.github.io/frontend-best-practices/method
 ---
 
 # How This Stays Honest

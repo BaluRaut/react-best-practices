@@ -2,7 +2,7 @@
 name: typing-react
 description: "Use when typing React with TypeScript: props, children, events, hooks, generic or polymorphic components, or when fixing @types/react 19 type errors after an upgrade. Reflects the React 19 typings and their breaking changes."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/ts-react
+  source: https://baluraut.github.io/frontend-best-practices/ts-react
 ---
 
 # TypeScript with React 19

@@ -18,11 +18,11 @@ function spaFallback(): Plugin {
   }
 }
 
-// Project pages deploy to https://baluraut.github.io/react-best-practices/, so every
+// Project pages deploy to https://baluraut.github.io/frontend-best-practices/, so every
 // asset URL must carry that prefix. A wrong base is the #1 cause of a blank GitHub
 // Pages deploy: the build succeeds and every asset 404s at runtime.
 export default defineConfig({
-  base: '/react-best-practices/',
+  base: '/frontend-best-practices/',
   plugins: [react(), spaFallback()],
   build: {
     rollupOptions: {

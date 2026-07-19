@@ -2,7 +2,7 @@
 name: react-forms
 description: "Use when building React forms: controlled vs uncontrolled inputs, React 19 Actions and useActionState, validation, and when react-hook-form earns its weight over plain state."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/forms
+  source: https://baluraut.github.io/frontend-best-practices/forms
 ---
 
 # Forms

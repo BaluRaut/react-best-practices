@@ -2,7 +2,7 @@
 name: ant-design-v6
 description: "Use when building UI with Ant Design (antd) v6, or migrating from v5: the React 18+ requirement, design tokens and ConfigProvider, the CSS-in-JS engine, dark algorithm, and v5→v6 breaking changes. Targets antd 6.5.x."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/antd-v6
+  source: https://baluraut.github.io/frontend-best-practices/antd-v6
 ---
 
 # Ant Design v6 — Setup, Theming, CSS-in-JS, and the v5 → v6 Migration

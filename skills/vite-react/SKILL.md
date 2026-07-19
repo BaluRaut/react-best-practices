@@ -2,7 +2,7 @@
 name: vite-react
 description: "Use when configuring a Vite + React single-page app or deploying one to GitHub Pages: the base path, env vars and the VITE_ secret-leak trap, code splitting, and the GitHub Actions deploy workflow. Targets Vite 8 (Rolldown)."
 metadata:
-  source: https://baluraut.github.io/react-best-practices/vite
+  source: https://baluraut.github.io/frontend-best-practices/vite
 ---
 
 # Vite 8 + React SPA + GitHub Pages
@@ -76,7 +76,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   // Load-bearing for GitHub Pages project sites — see §7.
-  base: '/react-best-practices/',
+  base: '/frontend-best-practices/',
   plugins: [react()],
   // Declare the alias explicitly; do not rely on the built-in tsconfig-paths — see §3.
   resolve: {
@@ -367,20 +367,20 @@ This is the deliverable. Everything here was run end-to-end.
 
 ### `base` — non-negotiable for a project page
 
-Deploying to `https://baluraut.github.io/react-best-practices/` (a **project** page, not a user page)
-means assets live under `/react-best-practices/`. The default `base: '/'` produces `/assets/index.js`,
+Deploying to `https://baluraut.github.io/frontend-best-practices/` (a **project** page, not a user page)
+means assets live under `/frontend-best-practices/`. The default `base: '/'` produces `/assets/index.js`,
 which 404s → **blank white page, nothing in the console, only the network tab shows it.**
 
 ```ts
-export default defineConfig({ base: '/react-best-practices/' })
+export default defineConfig({ base: '/frontend-best-practices/' })
 ```
 
 Leading **and** trailing slash are both required. Verified — `dist/index.html` after build:
 
 ```html
-<link rel="icon" href="/react-best-practices/favicon.svg" />
-<script type="module" src="/react-best-practices/assets/index-BG_o4Ml2.js"></script>
-<link rel="stylesheet" href="/react-best-practices/assets/index-D64VDMd1.css">
+<link rel="icon" href="/frontend-best-practices/favicon.svg" />
+<script type="module" src="/frontend-best-practices/assets/index-BG_o4Ml2.js"></script>
+<link rel="stylesheet" href="/frontend-best-practices/assets/index-D64VDMd1.css">
 ```
 
 Wire the router to it, or client-side routing fights the base:
@@ -390,7 +390,7 @@ Wire the router to it, or client-side routing fights the base:
 ```
 
 `import.meta.env.BASE_URL` is populated from `base` automatically. Use it rather than re-typing the
-literal, so dev (`/`) and prod (`/react-best-practices/`) both work.
+literal, so dev (`/`) and prod (`/frontend-best-practices/`) both work.
 
 > 🟢 **Best practice** — set `base` correctly and wire the router to `import.meta.env.BASE_URL`. This
 > is a correctness rule with a nasty failure mode: a wrong `base` produces a blank page with an empty
@@ -400,16 +400,16 @@ literal, so dev (`/`) and prod (`/react-best-practices/`) both work.
 ### The SPA-404 problem
 
 GitHub Pages is a **static file server with no rewrite rules.** `BrowserRouter` shows
-`/react-best-practices/docs`. On a soft (in-app) navigation that's fine — React Router handles it
+`/frontend-best-practices/docs`. On a soft (in-app) navigation that's fine — React Router handles it
 client-side. But on a **hard load** — refresh, or someone opening a deep link you shared — the browser
-asks GitHub for the file `/react-best-practices/docs`. It doesn't exist. **404.**
+asks GitHub for the file `/frontend-best-practices/docs`. It doesn't exist. **404.**
 
 So the app works perfectly until a user refreshes or shares a link. That's the bug that reaches prod.
 
 | fix | how | cost |
 |---|---|---|
 | **`404.html` copy** | Ship `dist/404.html` byte-identical to `index.html`. Pages serves it for any unmatched path, the SPA boots, React Router reads `location.pathname` and renders the right route. | Clean URLs. Response status is **404** — non-ideal for SEO/crawlers, some monitors flag it. |
-| **`HashRouter`** | URLs become `/react-best-practices/#/docs`. The fragment never hits the server, so every path resolves to `index.html`. | Ugly URLs, worse SEO, breaks anchor links, 200 status. Zero config, cannot break. |
+| **`HashRouter`** | URLs become `/frontend-best-practices/#/docs`. The fragment never hits the server, so every path resolves to `index.html`. | Ugly URLs, worse SEO, breaks anchor links, 200 status. Zero config, cannot break. |
 | **`spa-github-pages` redirect hack** | `404.html` encodes the path into a querystring and redirects to `index.html`, which decodes it. | Clean URLs, but adds a redirect flash + real complexity. Legacy of the pre-`404.html` era. |
 
 **Recommendation: the `404.html` copy.** For a public reference site, clean shareable URLs matter for
@@ -443,7 +443,7 @@ Do it in the build, not by hand:
   `favicon.svg`, `CNAME`, OG images — things needing a stable, predictable URL.
 
 > **The `public/` + `base` footgun:** a hardcoded `/logo.png` in your JSX/CSS **breaks on Pages** — it
-> resolves to `baluraut.github.io/logo.png`, not `/react-best-practices/logo.png`. Vite rewrites `/foo`
+> resolves to `baluraut.github.io/logo.png`, not `/frontend-best-practices/logo.png`. Vite rewrites `/foo`
 > public refs in `index.html` and in CSS `url()`, but **not** strings you construct in JS. Always:
 > `` `${import.meta.env.BASE_URL}logo.png` `` — `BASE_URL` already ends in a slash, don't add a second.
 
