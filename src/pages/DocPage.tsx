@@ -7,7 +7,7 @@ import Stack from '@mui/material/Stack'
 
 import { LabelLegend } from '../components/LabelLegend'
 import { Markdown } from '../components/Markdown'
-import { DOCS_BY_SLUG, loadBody } from '../content/registry'
+import { APPLIES_TO, DOCS_BY_SLUG, loadBody } from '../content/registry'
 import { NotFound } from './NotFound'
 
 export function DocPage() {
@@ -30,8 +30,40 @@ export function DocPage() {
 
   if (!doc) return <NotFound />
 
+  const appliesTo = slug ? (APPLIES_TO[slug] ?? []) : []
+
   return (
     <Box>
+      {appliesTo.length > 0 && (
+        <Stack
+          direction="row"
+          spacing={0.75}
+          sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}
+        >
+          <Box
+            component="span"
+            sx={{
+              fontSize: '0.66rem',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'text.secondary',
+            }}
+          >
+            Applies to
+          </Box>
+          {appliesTo.map((v) => (
+            <Chip
+              key={v}
+              label={v}
+              size="small"
+              color="primary"
+              variant="outlined"
+              sx={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '0.68rem', height: 22 }}
+            />
+          ))}
+        </Stack>
+      )}
       <Stack direction="row" spacing={0.75} sx={{ mb: 3, flexWrap: 'wrap', gap: 0.75 }}>
         {doc.tags.map((tag) => (
           <Chip key={tag} label={tag} size="small" variant="outlined" />

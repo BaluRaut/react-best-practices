@@ -303,6 +303,68 @@ export const DOCS: Doc[] = [
 
 export const DOCS_BY_SLUG = new Map(DOCS.map((d) => [d.slug, d]))
 
+// "Applies to" — the runtime/language floor a page's advice assumes, so a reader knows at a glance
+// whether a pattern is universal or needs a newer version. Kept as a slug map rather than a field on
+// every Doc so it's one place to audit against the verified versions the pages actually cite.
+export const APPLIES_TO: Record<string, string[]> = {
+  fundamentals: ['React 16.8+'],
+  'react-practices': ['React 16.8+', 'Compiler: React 17+'],
+  'ts-react': ['@types/react 19', 'TS 5.0+'],
+  'ts-general': ['TS 5.x–7'],
+  'js-general': ['ES2020–2024', 'Node 24'],
+  'performance-craft': ['Any JS', 'TS 6+ note'],
+  'design-principles': ['Any React'],
+  'error-handling': ['ES2022+', 'Error.isError: ES2024'],
+  conventions: ['Any JS/TS'],
+  'migration-matrix': ['React 16 → 19'],
+  'react-16': ['React 16.0–16.14'],
+  'react-17': ['React 17'],
+  'react-18': ['React 18'],
+  'react-19': ['React 19'],
+  mui: ['MUI 9', 'React 17+'],
+  'antd-v6': ['antd 6.5', 'React 18+'],
+  'antd-v5': ['antd 5.29', 'React 16+'],
+  vite: ['Vite 8', 'Node 20+'],
+  quality: ['Vitest 4', 'Any React'],
+  architecture: ['Any React'],
+  'state-management': ['Any React'],
+  forms: ['Actions: React 19', 'else any React'],
+  'custom-hooks': ['React 16.8+'],
+  'data-layer': ['Any React', 'TanStack Query'],
+  security: ['Any front end'],
+}
+
+// Difficulty level per page. Wired into the UI only if enabled — pending a product decision on whether
+// a level axis belongs alongside the 🟢🟡🔴 kind labels. Most pages sit at Intermediate/Advanced by
+// design: this is a staff-level companion reference, not a beginner tutorial.
+export const LEVEL: Record<string, 'Beginner' | 'Intermediate' | 'Advanced'> = {
+  fundamentals: 'Beginner',
+  'react-practices': 'Intermediate',
+  'ts-react': 'Intermediate',
+  'ts-general': 'Advanced',
+  'js-general': 'Intermediate',
+  'performance-craft': 'Advanced',
+  'design-principles': 'Intermediate',
+  'error-handling': 'Intermediate',
+  conventions: 'Beginner',
+  'migration-matrix': 'Advanced',
+  'react-16': 'Intermediate',
+  'react-17': 'Intermediate',
+  'react-18': 'Advanced',
+  'react-19': 'Intermediate',
+  mui: 'Intermediate',
+  'antd-v6': 'Intermediate',
+  'antd-v5': 'Intermediate',
+  vite: 'Intermediate',
+  quality: 'Intermediate',
+  architecture: 'Intermediate',
+  'state-management': 'Intermediate',
+  forms: 'Intermediate',
+  'custom-hooks': 'Advanced',
+  'data-layer': 'Intermediate',
+  security: 'Intermediate',
+}
+
 // Lazy, NOT eager: an eager glob inlines all ~7,000 lines of markdown into the entry
 // chunk, so the landing page pays for prose no one has opened yet. Loading each body on
 // demand keeps the initial bundle small and matches the router's lazy DocPage — the doc
