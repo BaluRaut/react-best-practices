@@ -25,18 +25,37 @@ The content lives once, in [`src/content/*.md`](src/content/). From it:
 
 They can't drift, because there's only one copy of the prose.
 
-## Use the skills
+## Use the skills (any machine, any project)
+
+**One-line install** — grabs the 5 consolidated skills (`react`, `typescript`, `javascript`, `css`,
+`html`) from both repos into `~/.claude/skills/`, so they work in every project:
 
 ```bash
-npm run skills           # regenerate skills/ from src/content
-npm run skills:install   # regenerate and copy into ~/.claude/skills/
+curl -fsSL https://raw.githubusercontent.com/BaluRaut/frontend-best-practices/main/install-skills.sh | bash
 ```
 
-Or copy the pre-built [`skills/`](skills/) directory straight in:
+Options (append `| bash -s -- <flag>`):
+- `--project` — install into `./.claude/skills` (this project only) instead of your home dir.
+- `--granular` — install the ~39 fine-grained skills instead of the 5 consolidated ones.
+
+**Or do it by hand:**
 
 ```bash
-cp -r skills/* ~/.claude/skills/     # personal, all projects
-cp -r skills/* .claude/skills/       # project-scoped, checked into a repo
+git clone https://github.com/BaluRaut/frontend-best-practices.git
+git clone https://github.com/BaluRaut/html-css-best-practices.git
+mkdir -p ~/.claude/skills
+cp -r frontend-best-practices/tech-skills/*  ~/.claude/skills/   # react, typescript, javascript
+cp -r html-css-best-practices/tech-skills/*  ~/.claude/skills/   # css, html
+```
+
+That's it — **no activation step.** Claude Code auto-loads a skill when your request matches its
+`description`, so just open Claude in a project and ask it to write React/TS/JS/CSS/HTML.
+
+**Regenerate from source** (if you edit the content):
+
+```bash
+npm run skills:install        # the ~39 fine-grained skills
+npm run skills:tech:install   # the 5 consolidated per-tech skills
 ```
 
 Claude loads a skill when your request matches its `description` — no import step.
